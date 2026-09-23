@@ -60,4 +60,25 @@ export async function createProperty(formData: FormData) {
   });
 
   redirect("/properties");
+}export async function createContact(formData: FormData) {
+  const firstName = String(formData.get("firstName") ?? "").trim();
+
+  if (!firstName) {
+    throw new Error("First name is required.");
+  }
+
+  const optionalText = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value || null;
+  };
+
+  await db.orm.public.Contact.create({
+    firstName,
+    lastName: optionalText("lastName"),
+    phone: optionalText("phone"),
+    email: optionalText("email"),
+    notes: optionalText("notes"),
+  });
+
+  redirect("/contacts");
 }

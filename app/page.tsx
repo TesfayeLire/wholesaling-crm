@@ -10,7 +10,7 @@ const stats = [
 const navigation = [
   { label: "Dashboard", href: "/" },
   { label: "Properties", href: "/properties" },
-  { label: "Contacts", href: "#" },
+  { label: "Contacts", href: "/contacts" },
   { label: "Pipeline", href: "#" },
   { label: "Tasks", href: "#" },
 ];
@@ -121,9 +121,12 @@ export default function Home() {
                 + Add Property
               </Link>
 
-              <button className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold">
+              <Link
+                href="/contacts/new"
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"
+              >
                 + Add Contact
-              </button>
+              </Link>
 
               <button className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold">
                 + Create Task
