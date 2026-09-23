@@ -1,21 +1,67 @@
 import Link from "next/link";
-
-const stats = [
-  { label: "Active Leads", value: "0", detail: "Properties in your pipeline" },
-  { label: "Tasks Due", value: "0", detail: "Follow-ups needing attention" },
-  { label: "Under Contract", value: "0", detail: "Deals moving toward closing" },
-  { label: "Closed Deals", value: "0", detail: "Completed wholesale deals" },
-];
+import { db } from "@/src/prisma/db";
 
 const navigation = [
   { label: "Dashboard", href: "/" },
   { label: "Properties", href: "/properties" },
   { label: "Contacts", href: "/contacts" },
-  { label: "Pipeline", href: "#" },
-  { label: "Tasks", href: "#" },
+  { label: "Pipeline", href: "/pipeline" },
+  { label: "Tasks", href: "/tasks" },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const properties = await db.orm.public.Property.all();
+  const tasks = await db.orm.public.Task.all();
+
+  const activeLeads = properties.filter(
+    (property) =>
+      property.status !== "CLOSED" && property.status !== "DEAD",
+  ).length;
+
+  const tasksDue = tasks.filter(
+    (task) => task.status === "PENDING",
+  ).length;
+
+  const underContract = properties.filter(
+    (property) => property.status === "UNDER_CONTRACT",
+  ).length;
+
+  const closedDeals = properties.filter(
+    (property) => property.status === "CLOSED",
+  ).length;
+
+  const stats = [
+    {
+      label: "Active Leads",
+      value: activeLeads,
+      detail: "Properties in your pipeline",
+    },
+    {
+      label: "Tasks Due",
+      value: tasksDue,
+      detail: "Follow-ups needing attention",
+    },
+    {
+      label: "Under Contract",
+      value: underContract,
+      detail: "Deals moving toward closing",
+    },
+    {
+      label: "Closed Deals",
+      value: closedDeals,
+      detail: "Completed wholesale deals",
+    },
+  ];
+
+  const activeProperties = properties.filter(
+    (property) =>
+      property.status !== "CLOSED" && property.status !== "DEAD",
+  );
+
+  const pendingTasks = tasks.filter(
+    (task) => task.status === "PENDING",
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -82,31 +128,87 @@ export default function Home() {
 
           <section className="mt-8 grid gap-6 xl:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="font-semibold">Pipeline</h2>
-              <p className="text-sm text-slate-500">
-                Current deal activity
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold">Pipeline</h2>
+                  <p className="text-sm text-slate-500">
+                    Current deal activity
+                  </p>
+                </div>
 
-              <div className="mt-5 rounded-lg border border-dashed border-slate-300 px-6 py-10 text-center">
-                <p className="font-medium">No properties yet</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Add your first property to start building your pipeline.
-                </p>
+                <Link
+                  href="/pipeline"
+                  className="text-sm font-semibold"
+                >
+                  View Pipeline
+                </Link>
               </div>
+
+              {activeProperties.length === 0 ? (
+                <div className="mt-5 rounded-lg border border-dashed border-slate-300 px-6 py-10 text-center">
+                  <p className="font-medium">No active properties</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {activeProperties.slice(0, 5).map((property) => (
+                    <div
+                      key={property.id}
+                      className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
+                    >
+                      <div>
+                        <p className="font-semibold">{property.address}</p>
+                        <p className="text-sm text-slate-500">
+                          {property.city}, {property.state}
+                        </p>
+                      </div>
+
+                      <span className="text-xs font-semibold">
+                        {property.status.replaceAll("_", " ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="font-semibold">Upcoming Tasks</h2>
-              <p className="text-sm text-slate-500">
-                Your next follow-ups and actions
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold">Upcoming Tasks</h2>
+                  <p className="text-sm text-slate-500">
+                    Your next follow-ups and actions
+                  </p>
+                </div>
 
-              <div className="mt-5 rounded-lg border border-dashed border-slate-300 px-6 py-10 text-center">
-                <p className="font-medium">Nothing due yet</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Tasks will appear here as you work your leads.
-                </p>
+                <Link
+                  href="/tasks"
+                  className="text-sm font-semibold"
+                >
+                  View Tasks
+                </Link>
               </div>
+
+              {pendingTasks.length === 0 ? (
+                <div className="mt-5 rounded-lg border border-dashed border-slate-300 px-6 py-10 text-center">
+                  <p className="font-medium">Nothing due yet</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {pendingTasks.slice(0, 5).map((task) => (
+                    <div
+                      key={task.id}
+                      className="rounded-lg border border-slate-200 px-4 py-3"
+                    >
+                      <p className="font-semibold">{task.title}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {task.dueDate
+                          ? `Due ${new Date(task.dueDate).toLocaleDateString()}`
+                          : "No due date"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
@@ -128,9 +230,12 @@ export default function Home() {
                 + Add Contact
               </Link>
 
-              <button className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold">
+              <Link
+                href="/tasks/new"
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold"
+              >
                 + Create Task
-              </button>
+              </Link>
             </div>
           </section>
         </main>
