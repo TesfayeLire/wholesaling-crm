@@ -81,4 +81,30 @@ export async function createProperty(formData: FormData) {
   });
 
   redirect("/contacts");
+}export async function createTask(formData: FormData) {
+  const title = String(formData.get("title") ?? "").trim();
+
+  if (!title) {
+    throw new Error("Task title is required.");
+  }
+
+  const description = String(formData.get("description") ?? "").trim();
+  const dueDateValue = String(formData.get("dueDate") ?? "").trim();
+
+  const status = String(formData.get("status") ?? "PENDING") as
+    | "PENDING"
+    | "COMPLETED";
+
+  await db.orm.public.Task.create({
+    title,
+    description: description || null,
+    dueDate: dueDateValue
+      ? new Date(`${dueDateValue}T12:00:00Z`).toISOString()
+      : null,
+    status,
+    propertyId: null,
+    contactId: null,
+  });
+
+  redirect("/tasks");
 }
