@@ -60,7 +60,9 @@ export async function createProperty(formData: FormData) {
   });
 
   redirect("/properties");
-}export async function createContact(formData: FormData) {
+}
+
+export async function createContact(formData: FormData) {
   const firstName = String(formData.get("firstName") ?? "").trim();
 
   if (!firstName) {
@@ -81,7 +83,9 @@ export async function createProperty(formData: FormData) {
   });
 
   redirect("/contacts");
-}export async function createTask(formData: FormData) {
+}
+
+export async function createTask(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
 
   if (!title) {
@@ -107,4 +111,30 @@ export async function createProperty(formData: FormData) {
   });
 
   redirect("/tasks");
+}export async function updatePropertyStatus(formData: FormData) {
+  const propertyId = Number(formData.get("propertyId"));
+  const status = String(formData.get("status") ?? "");
+
+  if (!propertyId || !status) {
+    throw new Error("Property and status are required.");
+  }
+
+  const pipelineStatus = status as
+    | "NEW_LEAD"
+    | "RESEARCHING"
+    | "CONTACTED"
+    | "QUALIFIED"
+    | "OFFER_MADE"
+    | "NEGOTIATING"
+    | "UNDER_CONTRACT"
+    | "DISPOSITION"
+    | "CLOSED"
+    | "DEAD"
+    | "NURTURE";
+
+  await db.orm.public.Property
+    .where({ id: propertyId })
+    .update({ status: pipelineStatus });
+
+  redirect("/pipeline");
 }
