@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const stats = [
   { label: "Active Leads", value: "0", detail: "Properties in your pipeline" },
   { label: "Tasks Due", value: "0", detail: "Follow-ups needing attention" },
@@ -6,11 +8,11 @@ const stats = [
 ];
 
 const navigation = [
-  "Dashboard",
-  "Properties",
-  "Contacts",
-  "Pipeline",
-  "Tasks",
+  { label: "Dashboard", href: "/" },
+  { label: "Properties", href: "/properties" },
+  { label: "Contacts", href: "#" },
+  { label: "Pipeline", href: "#" },
+  { label: "Tasks", href: "#" },
 ];
 
 export default function Home() {
@@ -25,9 +27,12 @@ export default function Home() {
             </p>
           </div>
 
-          <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
+          <Link
+            href="/properties/new"
+            className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+          >
             + Add Property
-          </button>
+          </Link>
         </div>
       </header>
 
@@ -35,16 +40,17 @@ export default function Home() {
         <aside>
           <nav className="space-y-1">
             {navigation.map((item, index) => (
-              <div
-                key={item}
-                className={`rounded-lg px-3 py-2 text-sm font-medium ${
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`block rounded-lg px-3 py-2 text-sm font-medium ${
                   index === 0
                     ? "bg-slate-950 text-white"
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                {item}
-              </div>
+                {item.label}
+              </Link>
             ))}
           </nav>
         </aside>
@@ -108,9 +114,12 @@ export default function Home() {
             <h2 className="font-semibold">Quick Actions</h2>
 
             <div className="mt-4 flex flex-wrap gap-3">
-              <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
+              <Link
+                href="/properties/new"
+                className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+              >
                 + Add Property
-              </button>
+              </Link>
 
               <button className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold">
                 + Add Contact
