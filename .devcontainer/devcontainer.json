@@ -8,5 +8,5 @@
       "onAutoForward": "openBrowser"
     }
   },
-  "postStartCommand": "setsid pnpm dev > /tmp/wholesaling-crm.log 2>&1 < /dev/null &"
+  "postAttachCommand": "pgrep -f \"next dev\" >/dev/null || setsid pnpm dev > /tmp/wholesaling-crm.log 2>&1 < /dev/null &"
 }
