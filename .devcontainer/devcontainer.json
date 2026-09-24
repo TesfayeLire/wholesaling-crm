@@ -1,9 +1,12 @@
 {
-  "forwardPorts": [3000],
+  "forwardPorts": [
+    3000
+  ],
   "portsAttributes": {
     "3000": {
       "label": "Wholesaling CRM",
       "onAutoForward": "openBrowser"
     }
-  }
+  },
+  "postStartCommand": "nohup pnpm dev > /tmp/wholesaling-crm.log 2>&1 &"
 }
