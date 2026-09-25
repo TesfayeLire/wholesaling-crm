@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
 
-export default async function PropertiesPage() {
-  const properties = await db.orm.public.Property.all();
+export default async function PropertiesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
+  const params = await searchParams;
+  const q = (typeof params.q === "string" ? params.q : "").trim();
+  const status = typeof params.status === "string" ? params.status : "ALL";
+  const properties = (await db.orm.public.Property.all()).filter(property =>
+    (!q || [property.address, property.city, property.state, property.zipCode, property.county].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())) &&
+    (status === "ALL" || !status || property.status === status)
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -32,16 +38,16 @@ export default async function PropertiesPage() {
           </p>
         </div>
 
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <form method="get" className="mb-6 flex flex-col gap-3 sm:flex-row">
           <input
-            type="text"
+            type="search" name="q" defaultValue={q} aria-label="Search properties by address or location"
             placeholder="Search properties..."
             className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm outline-none sm:max-w-md"
           />
 
           <select
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm"
-            defaultValue="ALL"
+            name="status" aria-label="Pipeline status" defaultValue={status}
           >
             <option value="ALL">All statuses</option>
             <option value="NEW_LEAD">New Lead</option>
@@ -56,7 +62,9 @@ export default async function PropertiesPage() {
             <option value="DEAD">Dead</option>
             <option value="NURTURE">Nurture / Follow-Up</option>
           </select>
-        </div>
+          <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm text-white">Search / Filter</button>
+          <Link href="/properties" className="px-4 py-2 text-sm underline">Clear</Link>
+        </form>
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -68,9 +76,9 @@ export default async function PropertiesPage() {
 
           {properties.length === 0 ? (
             <div className="px-6 py-16 text-center">
-              <p className="font-semibold">No properties yet</p>
+              <p className="font-semibold">No matching properties</p>
               <p className="mt-2 text-sm text-slate-500">
-                Add your first property lead to start building your pipeline.
+                Try another search or status, or add a new property.
               </p>
             </div>
           ) : (
@@ -80,7 +88,7 @@ export default async function PropertiesPage() {
                 className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-b-0"
               >
                 <div>
-                  <p className="font-semibold">{property.address}</p>
+                  <Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}</Link>
                   <p className="text-slate-500">
                     {property.city}, {property.state} {property.zipCode}
                   </p>

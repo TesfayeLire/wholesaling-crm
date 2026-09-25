@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
 import { updatePropertyStatus } from "@/app/actions";
@@ -17,6 +18,7 @@ const stages = [
 ] as const;
 
 export default async function PipelinePage() {
+  await connection();
   const properties = await db.orm.public.Property.all();
 
   return (

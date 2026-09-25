@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
 
@@ -10,6 +11,7 @@ const navigation = [
 ];
 
 export default async function Home() {
+  await connection();
   const properties = await db.orm.public.Property.all();
   const tasks = await db.orm.public.Task.all();
 
@@ -18,7 +20,7 @@ export default async function Home() {
       property.status !== "CLOSED" && property.status !== "DEAD",
   ).length;
 
-  const tasksDue = tasks.filter(
+  const pendingTaskCount = tasks.filter(
     (task) => task.status === "PENDING",
   ).length;
 
@@ -37,9 +39,9 @@ export default async function Home() {
       detail: "Properties in your pipeline",
     },
     {
-      label: "Tasks Due",
-      value: tasksDue,
-      detail: "Follow-ups needing attention",
+      label: "Pending Tasks",
+      value: pendingTaskCount,
+      detail: "All tasks marked pending",
     },
     {
       label: "Under Contract",
@@ -156,7 +158,7 @@ export default async function Home() {
                       className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
                     >
                       <div>
-                        <p className="font-semibold">{property.address}</p>
+                        <Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}</Link>
                         <p className="text-sm text-slate-500">
                           {property.city}, {property.state}
                         </p>
@@ -174,7 +176,7 @@ export default async function Home() {
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-semibold">Upcoming Tasks</h2>
+                  <h2 className="font-semibold">Pending Tasks</h2>
                   <p className="text-sm text-slate-500">
                     Your next follow-ups and actions
                   </p>
@@ -190,7 +192,7 @@ export default async function Home() {
 
               {pendingTasks.length === 0 ? (
                 <div className="mt-5 rounded-lg border border-dashed border-slate-300 px-6 py-10 text-center">
-                  <p className="font-medium">Nothing due yet</p>
+                  <p className="font-medium">No pending tasks</p>
                 </div>
               ) : (
                 <div className="mt-5 space-y-3">
@@ -199,7 +201,7 @@ export default async function Home() {
                       key={task.id}
                       className="rounded-lg border border-slate-200 px-4 py-3"
                     >
-                      <p className="font-semibold">{task.title}</p>
+                      <Link className="font-semibold underline" href={`/tasks/${task.id}/edit`}>{task.title}</Link>
                       <p className="mt-1 text-sm text-slate-500">
                         {task.dueDate
                           ? `Due ${new Date(task.dueDate).toLocaleDateString()}`

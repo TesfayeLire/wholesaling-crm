@@ -1,7 +1,12 @@
 import Link from "next/link";
+import { db } from "@/src/prisma/db";
+import { connection } from "next/server";
+import { TaskRelations } from "@/app/components/record-forms";
 import { createTask } from "@/app/actions";
 
-export default function NewTaskPage() {
+export default async function NewTaskPage() {
+  await connection();
+  const [properties, contacts] = await Promise.all([db.orm.public.Property.all(), db.orm.public.Contact.all()]);
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -78,6 +83,7 @@ export default function NewTaskPage() {
                 />
               </label>
             </div>
+            <div className="mt-5"><TaskRelations properties={properties} contacts={contacts}/></div>
           </section>
 
           <div className="flex justify-end gap-3">
