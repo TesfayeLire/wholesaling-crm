@@ -1,0 +1,1409 @@
+From 164d0f961e2258096077103134c30232a82c03c9 Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Wed, 23 Sep 2026 22:42:59 -0500
+Subject: [PATCH] Add Phase 2 CRM record management and activity history
+
+---
+ app/actions.ts                    | 268 ++++++++++++++++--------------
+ app/components/action-form.tsx    |  30 ++++
+ app/components/record-forms.tsx   |  58 +++++++
+ app/components/record-ui.tsx      |  34 ++++
+ app/components/task-list.tsx      |  21 +++
+ app/contacts/[id]/edit/page.tsx   |   8 +
+ app/contacts/[id]/page.tsx        |  35 ++++
+ app/contacts/page.tsx             |  25 ++-
+ app/error.tsx                     |   5 +
+ app/layout.tsx                    |   6 +-
+ app/not-found.tsx                 |   4 +
+ app/page.tsx                      |  20 ++-
+ app/pipeline/page.tsx             |   4 +-
+ app/properties/[id]/edit/page.tsx |   8 +
+ app/properties/[id]/page.tsx      |  41 +++++
+ app/properties/page.tsx           |  28 ++--
+ app/tasks/[id]/edit/page.tsx      |  12 ++
+ app/tasks/new/page.tsx            |  10 +-
+ app/tasks/page.tsx                |  58 ++-----
+ eslint.config.mjs                 |   1 +
+ next.config.ts                    |   5 +-
+ package.json                      |   3 +-
+ pnpm-lock.yaml                    |   2 +-
+ src/crm-data.ts                   |  29 ++++
+ src/crm-input.ts                  |  64 +++++++
+ tests/phase2.test.mjs             | 188 +++++++++++++++++++++
+ 26 files changed, 766 insertions(+), 201 deletions(-)
+ create mode 100644 app/components/action-form.tsx
+ create mode 100644 app/components/record-forms.tsx
+ create mode 100644 app/components/record-ui.tsx
+ create mode 100644 app/components/task-list.tsx
+ create mode 100644 app/contacts/[id]/edit/page.tsx
+ create mode 100644 app/contacts/[id]/page.tsx
+ create mode 100644 app/error.tsx
+ create mode 100644 app/not-found.tsx
+ create mode 100644 app/properties/[id]/edit/page.tsx
+ create mode 100644 app/properties/[id]/page.tsx
+ create mode 100644 app/tasks/[id]/edit/page.tsx
+ create mode 100644 src/crm-data.ts
+ create mode 100644 src/crm-input.ts
+ create mode 100644 tests/phase2.test.mjs
+
+diff --git a/app/actions.ts b/app/actions.ts
+index 4a70bf492d3cf9f0f8859f8d389f0f0931815043..f7dadf94f1f4524d2a5cfd2fcecd4be4c897edf6 100644
+--- a/app/actions.ts
++++ b/app/actions.ts
+@@ -1,140 +1,158 @@
+ "use server";
+ 
+ import { redirect } from "next/navigation";
++import { revalidatePath } from "next/cache";
+ import { db } from "@/src/prisma/db";
++import { contactInput, optionalText, pipelineStatus, propertyInput, recordId, taskInput, taskStatus, text } from "@/src/crm-input";
+ 
+-export async function createProperty(formData: FormData) {
+-  const address = String(formData.get("address") ?? "").trim();
+-  const city = String(formData.get("city") ?? "").trim();
+-  const state = String(formData.get("state") ?? "").trim();
+-  const zipCode = String(formData.get("zipCode") ?? "").trim();
++type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+ 
+-  if (!address || !city || !state || !zipCode) {
+-    throw new Error("Address, city, state, and ZIP code are required.");
+-  }
+-
+-  const optionalText = (name: string) => {
+-    const value = String(formData.get(name) ?? "").trim();
+-    return value || null;
+-  };
+-
+-  const optionalNumber = (name: string) => {
+-    const value = String(formData.get(name) ?? "").trim();
+-    return value || null;
+-  };
+-
+-  const status = String(formData.get("status") ?? "NEW_LEAD") as
+-    | "NEW_LEAD"
+-    | "RESEARCHING"
+-    | "CONTACTED"
+-    | "QUALIFIED"
+-    | "OFFER_MADE"
+-    | "NEGOTIATING"
+-    | "UNDER_CONTRACT"
+-    | "DISPOSITION"
+-    | "CLOSED"
+-    | "DEAD"
+-    | "NURTURE";
+-
+-  const nextActionDateValue = String(
+-    formData.get("nextActionDate") ?? "",
+-  ).trim();
++function refresh() {
++  revalidatePath("/", "layout");
++}
++function confirmed(form: FormData) {
++  if (text(form, "confirm") !== "DELETE") throw new Error("Deletion requires explicit confirmation.");
++}
++async function activity(tx: Tx, type: string, description: string, propertyId: number | null = null, contactId: number | null = null) {
++  await tx.orm.public.Activity.create({ type, description, propertyId, contactId });
++}
++async function validateRelations(tx: Tx, propertyId: number | null, contactId: number | null) {
++  if (propertyId !== null && !await tx.orm.public.Property.where({ id: propertyId }).first()) throw new Error("Property no longer exists.");
++  if (contactId !== null && !await tx.orm.public.Contact.where({ id: contactId }).first()) throw new Error("Contact no longer exists.");
++}
+ 
+-  await db.orm.public.Property.create({
+-    address,
+-    city,
+-    state,
+-    zipCode,
+-    county: optionalText("county"),
+-    source: optionalText("source"),
+-    askingPrice: optionalNumber("askingPrice"),
+-    estimatedValue: optionalNumber("estimatedValue"),
+-    repairEstimate: optionalNumber("repairEstimate"),
+-    offerAmount: optionalNumber("offerAmount"),
+-    status,
+-    nextAction: optionalText("nextAction"),
+-    nextActionDate: nextActionDateValue
+-      ? new Date(`${nextActionDateValue}T12:00:00Z`).toISOString()
+-      : null,
+-    notes: optionalText("notes"),
++export async function createProperty(form: FormData) {
++  await db.orm.public.Property.create(propertyInput(form));
++  refresh();
++  redirect("/properties");
++}
++export async function createContact(form: FormData) {
++  await db.orm.public.Contact.create(contactInput(form));
++  refresh();
++  redirect("/contacts");
++}
++export async function createTask(form: FormData) {
++  const data = taskInput(form);
++  await db.transaction(async tx => {
++    await validateRelations(tx, data.propertyId, data.contactId);
++    await tx.orm.public.Task.create(data);
+   });
+-
++  refresh();
++  redirect("/tasks");
++}
++export async function updateProperty(form: FormData) {
++  const id = recordId(form.get("id"));
++  const data = propertyInput(form);
++  await db.transaction(async tx => {
++    const before = await tx.orm.public.Property.where({ id }).first();
++    if (!before) throw new Error("Property no longer exists.");
++    if (!Object.entries(data).some(([key, value]) => before[key as keyof typeof data] !== value)) return;
++    await tx.orm.public.Property.where({ id }).update(data);
++    await activity(tx, "PROPERTY_UPDATED", "Property details updated.", id);
++    if (before.status !== data.status) await activity(tx, "PIPELINE_CHANGED", `Pipeline changed from ${before.status} to ${data.status}.`, id);
++  });
++  refresh();
++  redirect(`/properties/${id}`);
++}
++export async function updatePropertyStatus(form: FormData) {
++  const id = recordId(form.get("propertyId"));
++  const status = pipelineStatus(text(form, "status"));
++  await db.transaction(async tx => {
++    const before = await tx.orm.public.Property.where({ id }).first();
++    if (!before) throw new Error("Property no longer exists.");
++    if (before.status === status) return;
++    await tx.orm.public.Property.where({ id }).update({ status });
++    await activity(tx, "PIPELINE_CHANGED", `Pipeline changed from ${before.status} to ${status}.`, id);
++  });
++  refresh();
++  redirect("/pipeline");
++}
++export async function updateContact(form: FormData) {
++  const id = recordId(form.get("id"));
++  const data = contactInput(form);
++  await db.transaction(async tx => {
++    const before = await tx.orm.public.Contact.where({ id }).first();
++    if (!before) throw new Error("Contact no longer exists.");
++    if (!Object.entries(data).some(([key, value]) => before[key as keyof typeof data] !== value)) return;
++    await tx.orm.public.Contact.where({ id }).update(data);
++    await activity(tx, "CONTACT_UPDATED", "Contact details updated.", null, id);
++  });
++  refresh();
++  redirect(`/contacts/${id}`);
++}
++export async function deleteProperty(form: FormData) {
++  confirmed(form);
++  const id = recordId(form.get("id"));
++  await db.transaction(async tx => {
++    // Keep tasks, contacts and history; clear only this property's references.
++    await tx.orm.public.Task.where({ propertyId: id }).update({ propertyId: null });
++    await tx.orm.public.Activity.where({ propertyId: id }).update({ propertyId: null });
++    await tx.orm.public.PropertyContact.where({ propertyId: id }).delete();
++    await tx.orm.public.Property.where({ id }).delete();
++  });
++  refresh();
+   redirect("/properties");
+ }
+-
+-export async function createContact(formData: FormData) {
+-  const firstName = String(formData.get("firstName") ?? "").trim();
+-
+-  if (!firstName) {
+-    throw new Error("First name is required.");
+-  }
+-
+-  const optionalText = (name: string) => {
+-    const value = String(formData.get(name) ?? "").trim();
+-    return value || null;
+-  };
+-
+-  await db.orm.public.Contact.create({
+-    firstName,
+-    lastName: optionalText("lastName"),
+-    phone: optionalText("phone"),
+-    email: optionalText("email"),
+-    notes: optionalText("notes"),
++export async function deleteContact(form: FormData) {
++  confirmed(form);
++  const id = recordId(form.get("id"));
++  await db.transaction(async tx => {
++    await tx.orm.public.Task.where({ contactId: id }).update({ contactId: null });
++    await tx.orm.public.Activity.where({ contactId: id }).update({ contactId: null });
++    await tx.orm.public.PropertyContact.where({ contactId: id }).delete();
++    await tx.orm.public.Contact.where({ id }).delete();
+   });
+-
++  refresh();
+   redirect("/contacts");
+ }
+-
+-export async function createTask(formData: FormData) {
+-  const title = String(formData.get("title") ?? "").trim();
+-
+-  if (!title) {
+-    throw new Error("Task title is required.");
+-  }
+-
+-  const description = String(formData.get("description") ?? "").trim();
+-  const dueDateValue = String(formData.get("dueDate") ?? "").trim();
+-
+-  const status = String(formData.get("status") ?? "PENDING") as
+-    | "PENDING"
+-    | "COMPLETED";
+-
+-  await db.orm.public.Task.create({
+-    title,
+-    description: description || null,
+-    dueDate: dueDateValue
+-      ? new Date(`${dueDateValue}T12:00:00Z`).toISOString()
+-      : null,
+-    status,
+-    propertyId: null,
+-    contactId: null,
++export async function linkContact(form: FormData) {
++  const propertyId = recordId(form.get("propertyId"));
++  const contactId = recordId(form.get("contactId"));
++  const role = optionalText(form, "role");
++  await db.transaction(async tx => {
++    await validateRelations(tx, propertyId, contactId);
++    const existing = await tx.orm.public.PropertyContact.where({ propertyId, contactId }).first();
++    if (existing) {
++      if (existing.role === role) return;
++      await tx.orm.public.PropertyContact.where({ id: existing.id }).update({ role });
++    } else {
++      // The existing composite unique constraint also prevents concurrent duplicates.
++      await tx.orm.public.PropertyContact.create({ propertyId, contactId, role });
++    }
++    await activity(tx, "CONTACT_LINKED", `${existing ? "Relationship updated" : "Contact linked to property"}${role ? ": " + role : ""}.`, propertyId, contactId);
+   });
+-
++  refresh();
++  redirect(text(form, "from") === "contact" ? `/contacts/${contactId}` : `/properties/${propertyId}`);
++}
++export async function updateTask(form: FormData) {
++  const id = recordId(form.get("id"));
++  const data = taskInput(form);
++  await db.transaction(async tx => {
++    const before = await tx.orm.public.Task.where({ id }).first();
++    if (!before) throw new Error("Task no longer exists.");
++    await validateRelations(tx, data.propertyId, data.contactId);
++    await tx.orm.public.Task.where({ id }).update(data);
++    if (before.status !== data.status) await activity(tx, "TASK_STATUS_CHANGED", `Task "${data.title}" ${data.status === "COMPLETED" ? "completed" : "reopened"}.`, data.propertyId, data.contactId);
++  });
++  refresh();
+   redirect("/tasks");
+-}export async function updatePropertyStatus(formData: FormData) {
+-  const propertyId = Number(formData.get("propertyId"));
+-  const status = String(formData.get("status") ?? "");
+-
+-  if (!propertyId || !status) {
+-    throw new Error("Property and status are required.");
+-  }
+-
+-  const pipelineStatus = status as
+-    | "NEW_LEAD"
+-    | "RESEARCHING"
+-    | "CONTACTED"
+-    | "QUALIFIED"
+-    | "OFFER_MADE"
+-    | "NEGOTIATING"
+-    | "UNDER_CONTRACT"
+-    | "DISPOSITION"
+-    | "CLOSED"
+-    | "DEAD"
+-    | "NURTURE";
+-
+-  await db.orm.public.Property
+-    .where({ id: propertyId })
+-    .update({ status: pipelineStatus });
+-
+-  redirect("/pipeline");
+-}
+\ No newline at end of file
++}
++export async function setTaskStatus(form: FormData) {
++  const id = recordId(form.get("id"));
++  const status = taskStatus(text(form, "status"));
++  await db.transaction(async tx => {
++    const before = await tx.orm.public.Task.where({ id }).first();
++    if (!before) throw new Error("Task no longer exists.");
++    if (before.status === status) return;
++    await tx.orm.public.Task.where({ id }).update({ status });
++    await activity(tx, "TASK_STATUS_CHANGED", `Task "${before.title}" ${status === "COMPLETED" ? "completed" : "reopened"}.`, before.propertyId, before.contactId);
++  });
++  refresh();
++}
++export async function deleteTask(form: FormData) {
++  confirmed(form);
++  const id = recordId(form.get("id"));
++  await db.orm.public.Task.where({ id }).delete();
++  refresh();
++  redirect("/tasks");
++}
+diff --git a/app/components/action-form.tsx b/app/components/action-form.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..566dfe49bdb56deb0453883b6302dd8b9bf29cf9
+--- /dev/null
++++ b/app/components/action-form.tsx
+@@ -0,0 +1,30 @@
++"use client";
++import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
++
++const PendingContext = createContext(false);
++export function SubmitButton({ children = "Save" }: { children?: ReactNode }) {
++  const pending = useContext(PendingContext);
++  return <button disabled={pending} type="submit" className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Saving…" : children}</button>;
++}
++export function ActionForm({ action, children, className = "space-y-5", confirmMessage }: { action: (form: FormData) => Promise<void>; children: ReactNode; className?: string; confirmMessage?: string }) {
++  const [error, setError] = useState("");
++  const [pending, startTransition] = useTransition();
++  return <PendingContext.Provider value={pending}><form className={className} aria-busy={pending} onSubmit={event => {
++    // Keep entered values on an unsuccessful save instead of resetting the form.
++    event.preventDefault();
++    if (pending || (confirmMessage && !window.confirm(confirmMessage))) return;
++    const form = new FormData(event.currentTarget);
++    setError("");
++    startTransition(async () => {
++      try { await action(form); }
++      catch (error) {
++        // Next uses a thrown redirect internally; let its router handle it.
++        if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
++        setError("Could not save this change. Check the fields and try again. The record may have changed or been deleted.");
++      }
++    });
++  }}>
++    {children}
++    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
++  </form></PendingContext.Provider>;
++}
+diff --git a/app/components/record-forms.tsx b/app/components/record-forms.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..0e8b4601040e6a818760c3ee38e03abc985e3534
+--- /dev/null
++++ b/app/components/record-forms.tsx
+@@ -0,0 +1,58 @@
++import Link from "next/link";
++import type { Contact, Property, Task } from "@/src/crm-data";
++import { pipelineStatuses } from "@/src/crm-input";
++import { ActionForm, SubmitButton } from "./action-form";
++import { Field, Section, inputClass, linkClass } from "./record-ui";
++
++type Action = (form: FormData) => Promise<void>;
++export function PropertyForm({ property, action }: { property: Property; action: Action }) {
++  return <ActionForm action={action}><input type="hidden" name="id" value={property.id}/>
++    <Section title="Property information"><div className="grid gap-5 md:grid-cols-2">
++      <Field name="address" label="Street address" value={property.address} required/>
++      <Field name="city" label="City" value={property.city} required/>
++      <Field name="state" label="State" value={property.state} required/>
++      <Field name="zipCode" label="ZIP code" value={property.zipCode} required/>
++      <Field name="county" label="County" value={property.county}/>
++      <Field name="source" label="Source" value={property.source}/>
++      <Field name="askingPrice" label="Asking price" value={property.askingPrice} type="number"/>
++      <Field name="estimatedValue" label="Estimated value" value={property.estimatedValue} type="number"/>
++      <Field name="repairEstimate" label="Repair estimate" value={property.repairEstimate} type="number"/>
++      <Field name="offerAmount" label="Offer amount" value={property.offerAmount} type="number"/>
++      <label><span className="mb-2 block text-sm font-medium">Pipeline status</span><select name="status" defaultValue={property.status} className={inputClass}>{pipelineStatuses.map(status => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}</select></label>
++      <Field name="nextAction" label="Next action" value={property.nextAction}/>
++      <Field name="nextActionDate" label="Next action date" value={property.nextActionDate?.slice(0, 10)} type="date"/>
++      <Field name="notes" label="Notes" value={property.notes} type="textarea"/>
++    </div></Section>
++    <div className="flex gap-3"><SubmitButton>Save property</SubmitButton><Link className={linkClass} href={`/properties/${property.id}`}>Cancel</Link></div>
++  </ActionForm>;
++}
++export function ContactForm({ contact, action }: { contact: Contact; action: Action }) {
++  return <ActionForm action={action}><input type="hidden" name="id" value={contact.id}/>
++    <Section title="Contact information"><div className="grid gap-5 md:grid-cols-2">
++      <Field name="firstName" label="First name" value={contact.firstName} required/>
++      <Field name="lastName" label="Last name" value={contact.lastName}/>
++      <Field name="phone" label="Phone" value={contact.phone} type="tel"/>
++      <Field name="email" label="Email" value={contact.email} type="email"/>
++      <Field name="notes" label="Notes" value={contact.notes} type="textarea"/>
++    </div></Section>
++    <div className="flex gap-3"><SubmitButton>Save contact</SubmitButton><Link className={linkClass} href={`/contacts/${contact.id}`}>Cancel</Link></div>
++  </ActionForm>;
++}
++export function TaskRelations({ properties, contacts, task }: { properties: Property[]; contacts: Contact[]; task?: Task }) {
++  return <div className="grid gap-5 md:grid-cols-2">
++    <label><span className="mb-2 block text-sm font-medium">Related property</span><select name="propertyId" defaultValue={task?.propertyId ?? ""} className={inputClass}><option value="">No property</option>{properties.map(p => <option key={p.id} value={p.id}>{p.address}, {p.city} (#{p.id})</option>)}</select></label>
++    <label><span className="mb-2 block text-sm font-medium">Related contact</span><select name="contactId" defaultValue={task?.contactId ?? ""} className={inputClass}><option value="">No contact</option>{contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName} (#{c.id})</option>)}</select></label>
++  </div>;
++}
++export function TaskForm({ task, properties, contacts, action }: { task: Task; properties: Property[]; contacts: Contact[]; action: Action }) {
++  return <ActionForm action={action}><input type="hidden" name="id" value={task.id}/>
++    <Section title="Task information">
++      <Field name="title" label="Title" value={task.title} required/>
++      <Field name="description" label="Description" value={task.description} type="textarea"/>
++      <Field name="dueDate" label="Due date" value={task.dueDate?.slice(0, 10)} type="date"/>
++      <label className="block"><span className="mb-2 block text-sm font-medium">Status</span><select name="status" defaultValue={task.status} className={inputClass}><option value="PENDING">Pending</option><option value="COMPLETED">Completed</option></select></label>
++      <TaskRelations properties={properties} contacts={contacts} task={task}/>
++    </Section>
++    <div className="flex gap-3"><SubmitButton>Save task</SubmitButton><Link href="/tasks" className={linkClass}>Cancel</Link></div>
++  </ActionForm>;
++}
+diff --git a/app/components/record-ui.tsx b/app/components/record-ui.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..4488e7689e9eda12c8a79122a7ac75f13aabdd7d
+--- /dev/null
++++ b/app/components/record-ui.tsx
+@@ -0,0 +1,34 @@
++import Link from "next/link";
++import type { ReactNode } from "react";
++import { ActionForm, SubmitButton } from "./action-form";
++
++export const inputClass = "w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5";
++export const linkClass = "inline-block rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold";
++export function RecordPage({ title, back, children }: { title: string; back: string; children: ReactNode }) {
++  return <main className="mx-auto w-full max-w-5xl space-y-6 px-6 py-8">
++    <Link href={back} className={linkClass}>Back to {back.startsWith("/properties") ? "Properties" : back.startsWith("/contacts") ? "Contacts" : "Tasks"}</Link>
++    <h1 className="text-3xl font-bold">{title}</h1>{children}
++  </main>;
++}
++export function Section({ title, children }: { title: string; children: ReactNode }) {
++  return <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-lg font-semibold">{title}</h2>{children}</section>;
++}
++export function Field({ name, label, value, type = "text", required = false }: { name: string; label: string; value?: string | null; type?: string; required?: boolean }) {
++  return <label className="block"><span className="mb-2 block text-sm font-medium">{label}{required ? " *" : ""}</span>
++    {type === "textarea" ? <textarea name={name} defaultValue={value ?? ""} rows={4} className={inputClass}/> :
++      <input name={name} type={type} defaultValue={value ?? ""} required={required} min={type === "number" ? "0" : undefined} step={type === "number" ? "any" : undefined} className={inputClass}/>}
++  </label>;
++}
++export function DeleteRecord({ id, action, name, explanation }: { id: number; action: (form: FormData) => Promise<void>; name: string; explanation: string }) {
++  return <Section title="Delete record"><p className="text-sm text-slate-600">{explanation}</p>
++    <ActionForm action={action} confirmMessage={`Permanently delete ${name}? ${explanation}`}>
++      <input type="hidden" name="id" value={id}/>
++      <label className="flex items-center gap-2 text-sm"><input type="checkbox" required name="confirm" value="DELETE"/>I confirm I want to permanently delete this record.</label>
++      <SubmitButton>Delete record</SubmitButton>
++    </ActionForm>
++  </Section>;
++}
++export function ActivityHistory({ activities }: { activities: { id: number; createdAt: string; description: string }[] }) {
++  const ordered = [...activities].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id);
++  return <Section title="Activity history">{ordered.length ? <ol className="space-y-3">{ordered.map(item => <li key={item.id} className="border-b border-slate-100 pb-3"><p>{item.description}</p><time className="text-xs text-slate-500" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("en-US", { timeZone: "UTC" })} UTC</time></li>)}</ol> : <p className="text-sm text-slate-500">No activity recorded yet.</p>}</Section>;
++}
+diff --git a/app/components/task-list.tsx b/app/components/task-list.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..d86c1c6765acbbf85863a74350cf383f64f93858
+--- /dev/null
++++ b/app/components/task-list.tsx
+@@ -0,0 +1,21 @@
++import Link from "next/link";
++import type { Task, Property, Contact } from "@/src/crm-data";
++import { dateLabel } from "@/src/crm-data";
++import { setTaskStatus } from "@/app/actions";
++import { ActionForm, SubmitButton } from "./action-form";
++
++export function TaskList({ tasks, properties, contacts }: { tasks: Task[]; properties: Property[]; contacts: Contact[] }) {
++  return tasks.length ? <div className="divide-y divide-slate-100">{tasks.map(task => {
++    const property = properties.find(p => p.id === task.propertyId);
++    const contact = contacts.find(c => c.id === task.contactId);
++    return <div key={task.id} className="grid gap-4 px-5 py-4 text-sm md:grid-cols-[2fr_1fr_1fr_1.5fr]">
++      <div><Link href={`/tasks/${task.id}/edit`} className="font-semibold underline">{task.title}</Link><p className="whitespace-pre-wrap text-slate-500">{task.description}</p></div>
++      <span>{task.dueDate ? `Due ${dateLabel(task.dueDate)}` : "No due date"}</span>
++      <div className="space-y-2"><p>{task.status === "COMPLETED" ? "Completed" : "Pending"}</p><ActionForm action={setTaskStatus}>
++        <input type="hidden" name="id" value={task.id}/><input type="hidden" name="status" value={task.status === "COMPLETED" ? "PENDING" : "COMPLETED"}/>
++        <SubmitButton>{task.status === "COMPLETED" ? "Reopen" : "Complete"}</SubmitButton>
++      </ActionForm></div>
++      <div className="space-y-2">{property && <Link className="block underline" href={`/properties/${property.id}`}>{property.address}</Link>}{contact && <Link className="block underline" href={`/contacts/${contact.id}`}>{contact.firstName} {contact.lastName}</Link>}{!task.propertyId && !task.contactId && <span>General task</span>}<Link className="block underline" href={`/tasks/${task.id}/edit`}>Edit / Delete</Link></div>
++    </div>;
++  })}</div> : <p className="p-6 text-sm text-slate-500">No matching tasks.</p>;
++}
+diff --git a/app/contacts/[id]/edit/page.tsx b/app/contacts/[id]/edit/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..df9cd71154252f7ce33c9b10266d94edf03c3ee6
+--- /dev/null
++++ b/app/contacts/[id]/edit/page.tsx
+@@ -0,0 +1,8 @@
++import { getContact } from "@/src/crm-data";
++import { updateContact } from "@/app/actions";
++import { RecordPage } from "@/app/components/record-ui";
++import { ContactForm } from "@/app/components/record-forms";
++export default async function EditContact({ params }: { params: Promise<{ id: string }> }) {
++  const contact = await getContact((await params).id);
++  return <RecordPage title="Edit contact" back={`/contacts/${contact.id}`}><ContactForm contact={contact} action={updateContact}/></RecordPage>;
++}
+diff --git a/app/contacts/[id]/page.tsx b/app/contacts/[id]/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..bc1d9755c72471e15c423308fd0b9bf40c52447b
+--- /dev/null
++++ b/app/contacts/[id]/page.tsx
+@@ -0,0 +1,35 @@
++import Link from "next/link";
++import { db } from "@/src/prisma/db";
++import { getContact } from "@/src/crm-data";
++import { deleteContact, linkContact } from "@/app/actions";
++import { RecordPage, Section, DeleteRecord, ActivityHistory, linkClass, inputClass, Field } from "@/app/components/record-ui";
++import { ActionForm, SubmitButton } from "@/app/components/action-form";
++import { TaskList } from "@/app/components/task-list";
++
++export default async function ContactDetail({ params }: { params: Promise<{ id: string }> }) {
++  const contact = await getContact((await params).id);
++  const [links, properties, tasks, activities] = await Promise.all([
++    db.orm.public.PropertyContact.where({ contactId: contact.id }).all(),
++    db.orm.public.Property.all(), db.orm.public.Task.where({ contactId: contact.id }).all(),
++    db.orm.public.Activity.where({ contactId: contact.id }).all(),
++  ]);
++  const name = `${contact.firstName} ${contact.lastName ?? ""}`.trim();
++  return <RecordPage title={name} back="/contacts">
++    <Link className={linkClass} href={`/contacts/${contact.id}/edit`}>Edit contact</Link>
++    <Section title="Contact details"><dl className="grid gap-5 sm:grid-cols-2">{[["First name", contact.firstName], ["Last name", contact.lastName], ["Phone", contact.phone], ["Email", contact.email], ["Notes", contact.notes]].map(([label, value]) => <div key={label}><dt className="text-sm text-slate-500">{label}</dt><dd className="whitespace-pre-wrap break-words">{value ?? "—"}</dd></div>)}</dl></Section>
++    <Section title="Properties">{links.length ? <ul className="space-y-3">{links.map(link => {
++      const property = properties.find(p => p.id === link.propertyId);
++      return property && <li key={link.id}><Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}, {property.city}</Link><span className="ml-3 text-sm text-slate-500">{link.role ?? "No role set"}</span></li>;
++    })}</ul> : <p>No properties linked.</p>}
++      {properties.length > 0 ? <ActionForm action={linkContact}>
++        <input type="hidden" name="contactId" value={contact.id}/><input type="hidden" name="from" value="contact"/>
++        <label className="block"><span className="mb-2 block text-sm font-medium">Link existing property / update role</span><select required name="propertyId" defaultValue="" className={inputClass}><option value="" disabled>Select property</option>{properties.map(p => <option key={p.id} value={p.id}>{p.address}, {p.city} (#{p.id})</option>)}</select></label>
++        <Field name="role" label="Role (Seller, Owner, Agent, or any other label)"/>
++        <SubmitButton>Save relationship</SubmitButton>
++      </ActionForm> : <Link href="/properties/new" className={linkClass}>Create property</Link>}
++    </Section>
++    <Section title="Tasks"><Link className={linkClass} href="/tasks/new">Create task</Link><TaskList tasks={tasks} properties={properties} contacts={[contact]}/></Section>
++    <ActivityHistory activities={activities}/>
++    <DeleteRecord id={contact.id} action={deleteContact} name={name} explanation="Linked properties, tasks and activity history will be preserved. This contact's links will be removed."/>
++  </RecordPage>;
++}
+diff --git a/app/contacts/page.tsx b/app/contacts/page.tsx
+index 0cd6d8d618d72d5aa5a4eb3c18beb1ec268f27fa..d71a6b5321e8bab48189b521a4be0bf805b38199 100644
+--- a/app/contacts/page.tsx
++++ b/app/contacts/page.tsx
+@@ -1,8 +1,14 @@
+ import Link from "next/link";
+ import { db } from "@/src/prisma/db";
+ 
+-export default async function ContactsPage() {
+-  const contacts = await db.orm.public.Contact.all();
++export default async function ContactsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
++  const params = await searchParams;
++  const q = (typeof params.q === "string" ? params.q : "").trim();
++  const digits = q.replace(/\D/g, "");
++  const contacts = (await db.orm.public.Contact.all()).filter(contact =>
++    !q || [contact.firstName, contact.lastName, contact.phone, contact.email].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase()) ||
++    (digits.length > 0 && /^[+()\d\s.-]+$/.test(q) && (contact.phone ?? "").replace(/\D/g, "").includes(digits))
++  );
+ 
+   return (
+     <div className="min-h-screen bg-slate-50 text-slate-950">
+@@ -32,6 +38,11 @@ export default async function ContactsPage() {
+           </p>
+         </div>
+ 
++        <form method="get" className="mb-6 flex flex-wrap gap-3">
++          <input type="search" name="q" defaultValue={q} aria-label="Search contacts by name, phone or email" placeholder="Name, phone or email" className="rounded-lg border border-slate-300 bg-white px-4 py-2"/>
++          <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm text-white">Search</button>
++          <Link href="/contacts" className="px-4 py-2 text-sm underline">Clear</Link>
++        </form>
+         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+           <div className="grid grid-cols-[1.5fr_1fr_1.5fr_2fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+             <span>Name</span>
+@@ -42,9 +53,9 @@ export default async function ContactsPage() {
+ 
+           {contacts.length === 0 ? (
+             <div className="px-6 py-16 text-center">
+-              <p className="font-semibold">No contacts yet</p>
++              <p className="font-semibold">No matching contacts</p>
+               <p className="mt-2 text-sm text-slate-500">
+-                Add your first seller or contact to start building your contact list.
++                Try another search, or add a new contact.
+               </p>
+             </div>
+           ) : (
+@@ -53,9 +64,9 @@ export default async function ContactsPage() {
+                 key={contact.id}
+                 className="grid grid-cols-[1.5fr_1fr_1.5fr_2fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-b-0"
+               >
+-                <span className="font-semibold">
++                <Link className="font-semibold underline" href={`/contacts/${contact.id}`}>
+                   {contact.firstName} {contact.lastName ?? ""}
+-                </span>
++                </Link>
+                 <span>{contact.phone ?? "—"}</span>
+                 <span>{contact.email ?? "—"}</span>
+                 <span>{contact.notes ?? "—"}</span>
+@@ -66,4 +77,4 @@ export default async function ContactsPage() {
+       </main>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/app/error.tsx b/app/error.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..029c0257c9e7396fe7a1991a161eaf3e5353ef76
+--- /dev/null
++++ b/app/error.tsx
+@@ -0,0 +1,5 @@
++"use client";
++import Link from "next/link";
++export default function ErrorPage({ reset }: { reset: () => void }) {
++  return <main className="mx-auto max-w-5xl space-y-4 p-8"><h1 className="text-2xl font-bold">Unable to load this page</h1><p>Please try again. If the problem continues, check the database connection in your working environment.</p><button className="rounded border px-4 py-2" onClick={reset}>Try again</button>{" "}<Link className="underline" href="/">Dashboard</Link></main>;
++}
+diff --git a/app/layout.tsx b/app/layout.tsx
+index 9852c15349db239dd8a0712ffa70eccb731c9c88..50e0836f1be623629775dc3685e626ff9df31735 100644
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -1,3 +1,4 @@
++import Link from "next/link";
+ import type { Metadata } from "next";
+ import { Geist, Geist_Mono } from "next/font/google";
+ import "./globals.css";
+@@ -23,7 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
+       lang="en"
+       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+     >
+-      <body className="min-h-full flex flex-col">{children}</body>
++      <body className="min-h-full flex flex-col bg-slate-50 text-slate-950">
++        <nav aria-label="Main navigation" className="flex flex-wrap gap-5 border-b border-slate-200 bg-white px-6 py-3 text-sm font-medium">
++          {[["Dashboard", "/"], ["Properties", "/properties"], ["Contacts", "/contacts"], ["Pipeline", "/pipeline"], ["Tasks", "/tasks"]].map(([label, href]) => <Link key={href} href={href} className="hover:underline">{label}</Link>)}
++        </nav>{children}</body>
+     </html>
+   );
+ }
+diff --git a/app/not-found.tsx b/app/not-found.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e69ee0cb3b224b6345150ae5971fcdc2e0f76a2
+--- /dev/null
++++ b/app/not-found.tsx
+@@ -0,0 +1,4 @@
++import Link from "next/link";
++export default function NotFound() {
++  return <main className="mx-auto max-w-5xl space-y-4 p-8"><h1 className="text-2xl font-bold">Record not found</h1><p>This record may have been deleted, or the link is invalid.</p><Link className="underline" href="/properties">Properties</Link>{" · "}<Link className="underline" href="/contacts">Contacts</Link>{" · "}<Link className="underline" href="/tasks">Tasks</Link></main>;
++}
+diff --git a/app/page.tsx b/app/page.tsx
+index d0485d9ae31aa74fa0d2f65a83fd8363818cbf8e..1b1af796c7cca1fa0af0043679826842f73b8d5c 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -1,3 +1,4 @@
++import { connection } from "next/server";
+ import Link from "next/link";
+ import { db } from "@/src/prisma/db";
+ 
+@@ -10,6 +11,7 @@ const navigation = [
+ ];
+ 
+ export default async function Home() {
++  await connection();
+   const properties = await db.orm.public.Property.all();
+   const tasks = await db.orm.public.Task.all();
+ 
+@@ -18,7 +20,7 @@ export default async function Home() {
+       property.status !== "CLOSED" && property.status !== "DEAD",
+   ).length;
+ 
+-  const tasksDue = tasks.filter(
++  const pendingTaskCount = tasks.filter(
+     (task) => task.status === "PENDING",
+   ).length;
+ 
+@@ -37,9 +39,9 @@ export default async function Home() {
+       detail: "Properties in your pipeline",
+     },
+     {
+-      label: "Tasks Due",
+-      value: tasksDue,
+-      detail: "Follow-ups needing attention",
++      label: "Pending Tasks",
++      value: pendingTaskCount,
++      detail: "All tasks marked pending",
+     },
+     {
+       label: "Under Contract",
+@@ -156,7 +158,7 @@ export default async function Home() {
+                       className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
+                     >
+                       <div>
+-                        <p className="font-semibold">{property.address}</p>
++                        <Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}</Link>
+                         <p className="text-sm text-slate-500">
+                           {property.city}, {property.state}
+                         </p>
+@@ -174,7 +176,7 @@ export default async function Home() {
+             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+               <div className="flex items-center justify-between">
+                 <div>
+-                  <h2 className="font-semibold">Upcoming Tasks</h2>
++                  <h2 className="font-semibold">Pending Tasks</h2>
+                   <p className="text-sm text-slate-500">
+                     Your next follow-ups and actions
+                   </p>
+@@ -190,7 +192,7 @@ export default async function Home() {
+ 
+               {pendingTasks.length === 0 ? (
+                 <div className="mt-5 rounded-lg border border-dashed border-slate-300 px-6 py-10 text-center">
+-                  <p className="font-medium">Nothing due yet</p>
++                  <p className="font-medium">No pending tasks</p>
+                 </div>
+               ) : (
+                 <div className="mt-5 space-y-3">
+@@ -199,7 +201,7 @@ export default async function Home() {
+                       key={task.id}
+                       className="rounded-lg border border-slate-200 px-4 py-3"
+                     >
+-                      <p className="font-semibold">{task.title}</p>
++                      <Link className="font-semibold underline" href={`/tasks/${task.id}/edit`}>{task.title}</Link>
+                       <p className="mt-1 text-sm text-slate-500">
+                         {task.dueDate
+                           ? `Due ${new Date(task.dueDate).toLocaleDateString()}`
+@@ -242,4 +244,4 @@ export default async function Home() {
+       </div>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/app/pipeline/page.tsx b/app/pipeline/page.tsx
+index 4a30d99610cddf69f14cfdff926d8526dbb7625c..082c97d95a6565175fa3e954ea23b7977a4d7f84 100644
+--- a/app/pipeline/page.tsx
++++ b/app/pipeline/page.tsx
+@@ -1,3 +1,4 @@
++import { connection } from "next/server";
+ import Link from "next/link";
+ import { db } from "@/src/prisma/db";
+ import { updatePropertyStatus } from "@/app/actions";
+@@ -17,6 +18,7 @@ const stages = [
+ ] as const;
+ 
+ export default async function PipelinePage() {
++  await connection();
+   const properties = await db.orm.public.Property.all();
+ 
+   return (
+@@ -134,4 +136,4 @@ export default async function PipelinePage() {
+       </main>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/app/properties/[id]/edit/page.tsx b/app/properties/[id]/edit/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..8514bc39e7fc6b0f818ff62c07ef62714d892144
+--- /dev/null
++++ b/app/properties/[id]/edit/page.tsx
+@@ -0,0 +1,8 @@
++import { getProperty } from "@/src/crm-data";
++import { updateProperty } from "@/app/actions";
++import { RecordPage } from "@/app/components/record-ui";
++import { PropertyForm } from "@/app/components/record-forms";
++export default async function EditProperty({ params }: { params: Promise<{ id: string }> }) {
++  const property = await getProperty((await params).id);
++  return <RecordPage title="Edit property" back={`/properties/${property.id}`}><PropertyForm property={property} action={updateProperty}/></RecordPage>;
++}
+diff --git a/app/properties/[id]/page.tsx b/app/properties/[id]/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..cdc140f6b35bf8bccac7ce36fc4d94af0701dc1a
+--- /dev/null
++++ b/app/properties/[id]/page.tsx
+@@ -0,0 +1,41 @@
++import Link from "next/link";
++import { db } from "@/src/prisma/db";
++import { getProperty, dateLabel } from "@/src/crm-data";
++import { deleteProperty, linkContact } from "@/app/actions";
++import { RecordPage, Section, DeleteRecord, ActivityHistory, linkClass, inputClass, Field } from "@/app/components/record-ui";
++import { ActionForm, SubmitButton } from "@/app/components/action-form";
++import { TaskList } from "@/app/components/task-list";
++
++export default async function PropertyDetail({ params }: { params: Promise<{ id: string }> }) {
++  const property = await getProperty((await params).id);
++  const [links, contacts, tasks, activities] = await Promise.all([
++    db.orm.public.PropertyContact.where({ propertyId: property.id }).all(),
++    db.orm.public.Contact.all(), db.orm.public.Task.where({ propertyId: property.id }).all(),
++    db.orm.public.Activity.where({ propertyId: property.id }).all(),
++  ]);
++  const fields = [
++    ["Address", property.address], ["City", property.city], ["State", property.state], ["ZIP code", property.zipCode],
++    ["County", property.county], ["Source", property.source], ["Asking price", property.askingPrice],
++    ["Estimated value", property.estimatedValue], ["Repair estimate", property.repairEstimate], ["Offer amount", property.offerAmount],
++    ["Pipeline status", property.status.replaceAll("_", " ")], ["Next action", property.nextAction],
++    ["Next action date", dateLabel(property.nextActionDate)], ["Notes", property.notes],
++  ];
++  return <RecordPage title={property.address} back="/properties">
++    <Link className={linkClass} href={`/properties/${property.id}/edit`}>Edit property</Link>
++    <Section title="Property details"><dl className="grid gap-5 sm:grid-cols-2">{fields.map(([label, value]) => <div key={label}><dt className="text-sm text-slate-500">{label}</dt><dd className="whitespace-pre-wrap break-words">{value ?? "—"}</dd></div>)}</dl></Section>
++    <Section title="Contacts">{links.length ? <ul className="space-y-3">{links.map(link => {
++      const contact = contacts.find(c => c.id === link.contactId);
++      return contact && <li key={link.id}><Link className="font-semibold underline" href={`/contacts/${contact.id}`}>{contact.firstName} {contact.lastName}</Link><span className="ml-3 text-sm text-slate-500">{link.role ?? "No role set"}</span></li>;
++    })}</ul> : <p>No contacts linked.</p>}
++      {contacts.length > 0 ? <ActionForm action={linkContact}>
++        <input type="hidden" name="propertyId" value={property.id}/>
++        <label className="block"><span className="mb-2 block text-sm font-medium">Link existing contact / update role</span><select required name="contactId" defaultValue="" className={inputClass}><option value="" disabled>Select contact</option>{contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName} (#{c.id})</option>)}</select></label>
++        <Field name="role" label="Role (Seller, Owner, Agent, or any other label)"/>
++        <SubmitButton>Save relationship</SubmitButton>
++      </ActionForm> : <Link href="/contacts/new" className={linkClass}>Create contact</Link>}
++    </Section>
++    <Section title="Tasks"><Link className={linkClass} href="/tasks/new">Create task</Link><TaskList tasks={tasks} properties={[property]} contacts={contacts}/></Section>
++    <ActivityHistory activities={activities}/>
++    <DeleteRecord id={property.id} action={deleteProperty} name={property.address} explanation="Linked contacts, tasks and activity history will be preserved. This property's links will be removed."/>
++  </RecordPage>;
++}
+diff --git a/app/properties/page.tsx b/app/properties/page.tsx
+index 1e79635384f19f8ae9b8c0c78d0a5be336b71cd6..801b27a63e611beae55cbc8b1018a8380f2a0691 100644
+--- a/app/properties/page.tsx
++++ b/app/properties/page.tsx
+@@ -1,8 +1,14 @@
+ import Link from "next/link";
+ import { db } from "@/src/prisma/db";
+ 
+-export default async function PropertiesPage() {
+-  const properties = await db.orm.public.Property.all();
++export default async function PropertiesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
++  const params = await searchParams;
++  const q = (typeof params.q === "string" ? params.q : "").trim();
++  const status = typeof params.status === "string" ? params.status : "ALL";
++  const properties = (await db.orm.public.Property.all()).filter(property =>
++    (!q || [property.address, property.city, property.state, property.zipCode, property.county].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())) &&
++    (status === "ALL" || !status || property.status === status)
++  );
+ 
+   return (
+     <div className="min-h-screen bg-slate-50 text-slate-950">
+@@ -32,16 +38,16 @@ export default async function PropertiesPage() {
+           </p>
+         </div>
+ 
+-        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
++        <form method="get" className="mb-6 flex flex-col gap-3 sm:flex-row">
+           <input
+-            type="text"
++            type="search" name="q" defaultValue={q} aria-label="Search properties by address or location"
+             placeholder="Search properties..."
+             className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm outline-none sm:max-w-md"
+           />
+ 
+           <select
+             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm"
+-            defaultValue="ALL"
++            name="status" aria-label="Pipeline status" defaultValue={status}
+           >
+             <option value="ALL">All statuses</option>
+             <option value="NEW_LEAD">New Lead</option>
+@@ -56,7 +62,9 @@ export default async function PropertiesPage() {
+             <option value="DEAD">Dead</option>
+             <option value="NURTURE">Nurture / Follow-Up</option>
+           </select>
+-        </div>
++          <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm text-white">Search / Filter</button>
++          <Link href="/properties" className="px-4 py-2 text-sm underline">Clear</Link>
++        </form>
+ 
+         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+           <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+@@ -68,9 +76,9 @@ export default async function PropertiesPage() {
+ 
+           {properties.length === 0 ? (
+             <div className="px-6 py-16 text-center">
+-              <p className="font-semibold">No properties yet</p>
++              <p className="font-semibold">No matching properties</p>
+               <p className="mt-2 text-sm text-slate-500">
+-                Add your first property lead to start building your pipeline.
++                Try another search or status, or add a new property.
+               </p>
+             </div>
+           ) : (
+@@ -80,7 +88,7 @@ export default async function PropertiesPage() {
+                 className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-b-0"
+               >
+                 <div>
+-                  <p className="font-semibold">{property.address}</p>
++                  <Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}</Link>
+                   <p className="text-slate-500">
+                     {property.city}, {property.state} {property.zipCode}
+                   </p>
+@@ -96,4 +104,4 @@ export default async function PropertiesPage() {
+       </main>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/app/tasks/[id]/edit/page.tsx b/app/tasks/[id]/edit/page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..23a8cb69d2987c3025010aadbc84dd423642c2e7
+--- /dev/null
++++ b/app/tasks/[id]/edit/page.tsx
+@@ -0,0 +1,12 @@
++import { db } from "@/src/prisma/db";
++import { getTask } from "@/src/crm-data";
++import { updateTask, deleteTask } from "@/app/actions";
++import { RecordPage, DeleteRecord } from "@/app/components/record-ui";
++import { TaskForm } from "@/app/components/record-forms";
++export default async function EditTask({ params }: { params: Promise<{ id: string }> }) {
++  const task = await getTask((await params).id);
++  const [properties, contacts] = await Promise.all([db.orm.public.Property.all(), db.orm.public.Contact.all()]);
++  return <RecordPage title="Edit task" back="/tasks"><TaskForm task={task} properties={properties} contacts={contacts} action={updateTask}/>
++    <DeleteRecord id={task.id} action={deleteTask} name={task.title} explanation="Only this task will be deleted. Its related property and contact will be preserved."/>
++  </RecordPage>;
++}
+diff --git a/app/tasks/new/page.tsx b/app/tasks/new/page.tsx
+index 093328871e17dbdf0b833bdd354e995ac92fe1c0..8bd7400f4c5bd671fcd8c4ae384d49b4ce534df4 100644
+--- a/app/tasks/new/page.tsx
++++ b/app/tasks/new/page.tsx
+@@ -1,7 +1,12 @@
+ import Link from "next/link";
++import { db } from "@/src/prisma/db";
++import { connection } from "next/server";
++import { TaskRelations } from "@/app/components/record-forms";
+ import { createTask } from "@/app/actions";
+ 
+-export default function NewTaskPage() {
++export default async function NewTaskPage() {
++  await connection();
++  const [properties, contacts] = await Promise.all([db.orm.public.Property.all(), db.orm.public.Contact.all()]);
+   return (
+     <div className="min-h-screen bg-slate-50 text-slate-950">
+       <header className="border-b border-slate-200 bg-white">
+@@ -78,6 +83,7 @@ export default function NewTaskPage() {
+                 />
+               </label>
+             </div>
++            <div className="mt-5"><TaskRelations properties={properties} contacts={contacts}/></div>
+           </section>
+ 
+           <div className="flex justify-end gap-3">
+@@ -99,4 +105,4 @@ export default function NewTaskPage() {
+       </main>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/app/tasks/page.tsx b/app/tasks/page.tsx
+index 75e57021cca771108323b5db8115b4f2d5ace4c1..bfef59d9440cdc68f6aa73082e74695ef062ae0c 100644
+--- a/app/tasks/page.tsx
++++ b/app/tasks/page.tsx
+@@ -1,8 +1,12 @@
+ import Link from "next/link";
++import { TaskList } from "@/app/components/task-list";
+ import { db } from "@/src/prisma/db";
+ 
+-export default async function TasksPage() {
+-  const tasks = await db.orm.public.Task.all();
++export default async function TasksPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
++  const params = await searchParams;
++  const status = params.status === "PENDING" || params.status === "COMPLETED" ? params.status : "ALL";
++  const [allTasks, properties, contacts] = await Promise.all([db.orm.public.Task.all(), db.orm.public.Property.all(), db.orm.public.Contact.all()]);
++  const tasks = allTasks.filter(task => status === "ALL" || task.status === status);
+ 
+   return (
+     <div className="min-h-screen bg-slate-50 text-slate-950">
+@@ -32,6 +36,13 @@ export default async function TasksPage() {
+           </p>
+         </div>
+ 
++        <form method="get" className="mb-6 flex gap-3">
++          <select name="status" aria-label="Task status" defaultValue={status} className="rounded-lg border border-slate-300 bg-white px-4 py-2">
++            <option value="ALL">All tasks</option><option value="PENDING">Pending</option><option value="COMPLETED">Completed</option>
++          </select>
++          <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm text-white">Filter</button>
++          <Link href="/tasks" className="px-4 py-2 text-sm underline">Clear</Link>
++        </form>
+         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+           <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+             <span>Task</span>
+@@ -40,48 +51,9 @@ export default async function TasksPage() {
+             <span>Related To</span>
+           </div>
+ 
+-          {tasks.length === 0 ? (
+-            <div className="px-6 py-16 text-center">
+-              <p className="font-semibold">No tasks yet</p>
+-              <p className="mt-2 text-sm text-slate-500">
+-                Create your first follow-up task to stay on top of your leads.
+-              </p>
+-            </div>
+-          ) : (
+-            tasks.map((task) => (
+-              <div
+-                key={task.id}
+-                className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-b-0"
+-              >
+-                <div>
+-                  <p className="font-semibold">{task.title}</p>
+-                  <p className="text-slate-500">
+-                    {task.description ?? "—"}
+-                  </p>
+-                </div>
+-
+-                <span>
+-                  {task.dueDate
+-                    ? new Date(task.dueDate).toLocaleDateString()
+-                    : "—"}
+-                </span>
+-
+-                <span>
+-                  {task.status === "COMPLETED" ? "Completed" : "Pending"}
+-                </span>
+-
+-                <span>
+-                  {task.propertyId
+-                    ? "Property"
+-                    : task.contactId
+-                      ? "Contact"
+-                      : "General"}
+-                </span>
+-              </div>
+-            ))
+-          )}
++          <TaskList tasks={tasks} properties={properties} contacts={contacts}/>
+         </section>
+       </main>
+     </div>
+   );
+-}
+\ No newline at end of file
++}
+diff --git a/eslint.config.mjs b/eslint.config.mjs
+index 05e726d1b4201bc8c7716d2b058279676582e8c0..b21510d698e30f8a3b7e89c48ca24413ac8def52 100644
+--- a/eslint.config.mjs
++++ b/eslint.config.mjs
+@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
+     "out/**",
+     "build/**",
+     "next-env.d.ts",
++    "src/prisma/contract.d.ts", // Generated by Prisma; validate via TypeScript.
+   ]),
+ ]);
+ 
+diff --git a/next.config.ts b/next.config.ts
+index 8999c44554b330d5e4bd2902a8c25a838053146c..dabe509bd98f5eece857b03e8351aa5232f3953f 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -3,10 +3,13 @@ import type { NextConfig } from "next";
+ const nextConfig: NextConfig = {
+   allowedDevOrigins: ["*.app.github.dev"],
+   experimental: {
++    // Optional for restricted build hosts; Codespaces keeps the default process workers.
++    useTypeScriptCli: process.env.CRM_BUILD_WORKER_THREADS === "1" ? false : undefined,
++    workerThreads: process.env.CRM_BUILD_WORKER_THREADS === "1",
+     serverActions: {
+       allowedOrigins: ["*.app.github.dev", "localhost:3000"],
+     },
+   },
+ };
+ 
+-export default nextConfig;
+\ No newline at end of file
++export default nextConfig;
+diff --git a/package.json b/package.json
+index 36bf2f4f85acfee9b8c6c71c663946d2a8093fd2..36bec89889a53c585dd6eefaeeec8a25ce216063 100644
+--- a/package.json
++++ b/package.json
+@@ -9,7 +9,8 @@
+     "start": "next start",
+     "lint": "eslint",
+     "postinstall": "prisma skills sync || exit 0",
+-    "contract:emit": "prisma contract emit"
++    "contract:emit": "prisma contract emit",
++    "test": "node --test --test-isolation=none tests/phase2.test.mjs"
+   },
+   "dependencies": {
+     "@prisma/orm-postgres": "8.0.0-rc.11",
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index a1b24c929943ea3bb0baea4189804058d1306e65..bb574108c994c4d8da66cd76c45794bd10ab12fa 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -127,7 +127,7 @@ importers:
+     devDependencies:
+       '@prisma/cli-engine':
+         specifier: 0.4.0
+-        version: 0.4.0
++        version: 0.4.0(@prisma/management-api-sdk@1.69.0)(magicast@0.5.5)
+       '@tailwindcss/postcss':
+         specifier: ^4
+         version: 4.3.3
+diff --git a/src/crm-data.ts b/src/crm-data.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..c383aed0c045adb888f9b615379f90f596141437
+--- /dev/null
++++ b/src/crm-data.ts
+@@ -0,0 +1,29 @@
++import { notFound } from "next/navigation";
++import { db } from "@/src/prisma/db";
++
++function routeId(value: string) {
++  const id = Number(value);
++  if (!/^\d+$/.test(value) || !Number.isSafeInteger(id) || id <= 0) notFound();
++  return id;
++}
++export async function getProperty(value: string) {
++  const row = await db.orm.public.Property.where({ id: routeId(value) }).first();
++  if (!row) notFound();
++  return row;
++}
++export async function getContact(value: string) {
++  const row = await db.orm.public.Contact.where({ id: routeId(value) }).first();
++  if (!row) notFound();
++  return row;
++}
++export async function getTask(value: string) {
++  const row = await db.orm.public.Task.where({ id: routeId(value) }).first();
++  if (!row) notFound();
++  return row;
++}
++export type Property = Awaited<ReturnType<typeof getProperty>>;
++export type Contact = Awaited<ReturnType<typeof getContact>>;
++export type Task = Awaited<ReturnType<typeof getTask>>;
++export function dateLabel(value: string | null) {
++  return value ? new Date(value).toLocaleDateString("en-US", { timeZone: "UTC" }) : "No date set";
++}
+diff --git a/src/crm-input.ts b/src/crm-input.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..4df1f61c6a248cbe6a8dd599389fa2c5a3eeb740
+--- /dev/null
++++ b/src/crm-input.ts
+@@ -0,0 +1,64 @@
++export const pipelineStatuses = ["NEW_LEAD", "RESEARCHING", "CONTACTED", "QUALIFIED", "OFFER_MADE", "NEGOTIATING", "UNDER_CONTRACT", "DISPOSITION", "CLOSED", "DEAD", "NURTURE"] as const;
++export type PipelineStatus = typeof pipelineStatuses[number];
++export function text(form: FormData, name: string) {
++  return String(form.get(name) ?? "").trim();
++}
++export function optionalText(form: FormData, name: string) {
++  return text(form, name) || null;
++}
++export function requiredText(form: FormData, name: string) {
++  const value = text(form, name);
++  if (!value) throw new Error(`${name} is required.`);
++  return value;
++}
++export function recordId(value: unknown) {
++  if (!/^\d+$/.test(String(value))) throw new Error("Invalid record ID.");
++  const id = Number(value);
++  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("Invalid record ID.");
++  return id;
++}
++export function optionalId(form: FormData, name: string) {
++  const value = text(form, name);
++  return value ? recordId(value) : null;
++}
++export function pipelineStatus(value: string): PipelineStatus {
++  if (!pipelineStatuses.includes(value as PipelineStatus)) throw new Error("Invalid pipeline status.");
++  return value as PipelineStatus;
++}
++export function taskStatus(value: string): "PENDING" | "COMPLETED" {
++  if (value !== "PENDING" && value !== "COMPLETED") throw new Error("Invalid task status.");
++  return value;
++}
++export function optionalDate(form: FormData, name: string) {
++  const value = text(form, name);
++  if (!value) return null;
++  const date = new Date(`${value}T12:00:00Z`);
++  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) throw new Error(`Invalid ${name}.`);
++  return date.toISOString();
++}
++function money(form: FormData, name: string) {
++  const value = text(form, name);
++  if (!value) return null;
++  if (!/^\d+(\.\d+)?$/.test(value)) throw new Error(`${name} must be a non-negative decimal.`);
++  return value; // Decimal values stay strings; do not lose precision through Number.
++}
++export function propertyInput(form: FormData) {
++  return {
++    address: requiredText(form, "address"), city: requiredText(form, "city"),
++    state: requiredText(form, "state"), zipCode: requiredText(form, "zipCode"),
++    county: optionalText(form, "county"), source: optionalText(form, "source"),
++    askingPrice: money(form, "askingPrice"), estimatedValue: money(form, "estimatedValue"),
++    repairEstimate: money(form, "repairEstimate"), offerAmount: money(form, "offerAmount"),
++    status: pipelineStatus(text(form, "status") || "NEW_LEAD"),
++    nextAction: optionalText(form, "nextAction"), nextActionDate: optionalDate(form, "nextActionDate"),
++    notes: optionalText(form, "notes"),
++  };
++}
++export function contactInput(form: FormData) {
++  const email = optionalText(form, "email");
++  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address.");
++  return { firstName: requiredText(form, "firstName"), lastName: optionalText(form, "lastName"), phone: optionalText(form, "phone"), email, notes: optionalText(form, "notes") };
++}
++export function taskInput(form: FormData) {
++  return { title: requiredText(form, "title"), description: optionalText(form, "description"), dueDate: optionalDate(form, "dueDate"), status: taskStatus(text(form, "status") || "PENDING"), propertyId: optionalId(form, "propertyId"), contactId: optionalId(form, "contactId") };
++}
+diff --git a/tests/phase2.test.mjs b/tests/phase2.test.mjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..27e954e2777406868f47e9d93ed2450b1a7f8541
+--- /dev/null
++++ b/tests/phase2.test.mjs
+@@ -0,0 +1,188 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import fs from "node:fs";
++import vm from "node:vm";
++import ts from "typescript";
++
++function load(path, imports = {}) {
++  const source = ts.transpileModule(fs.readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
++  const exports = {};
++  vm.runInNewContext(source, { exports, FormData, require: name => {
++    if (!(name in imports)) throw new Error("Unexpected import: " + name);
++    return imports[name];
++  } }, { filename: path });
++  return exports;
++}
++const input = load("src/crm-input.ts");
++function form(data) {
++  const result = new FormData();
++  for (const [key, value] of Object.entries(data)) result.set(key, String(value));
++  return result;
++}
++function fixture() {
++  let data = {
++    Property: [{ id: 1, address: "10 Oak St", status: "NEW_LEAD" }, { id: 2, address: "20 Pine St", status: "QUALIFIED" }],
++    Contact: [{ id: 3, firstName: "Pat" }, { id: 4, firstName: "Alex" }],
++    PropertyContact: [{ id: 5, propertyId: 1, contactId: 3, role: "Seller" }, { id: 6, propertyId: 2, contactId: 4, role: "Owner" }],
++    Task: [{ id: 7, title: "Call seller", status: "PENDING", propertyId: 1, contactId: 3 }, { id: 8, title: "Research", status: "PENDING", propertyId: 2, contactId: 4 }],
++    Activity: [{ id: 9, type: "NOTE", description: "Keep history", propertyId: 1, contactId: 3 }],
++  };
++  let failActivity = false;
++  let failDelete = false;
++  const collections = Object.fromEntries(Object.keys(data).map(model => [model, {
++    where(filter) {
++      assert.ok(Object.keys(filter).length, "Every mutation must be scoped");
++      const matches = row => Object.entries(filter).every(([key, value]) => row[key] === value);
++      return {
++        async first() { return data[model].find(matches) ? { ...data[model].find(matches) } : null; },
++        async update(values) { data[model].filter(matches).forEach(row => Object.assign(row, values)); },
++        async delete() {
++          if (failDelete && model === "Property") throw new Error("FK conflict");
++          data[model] = data[model].filter(row => !matches(row));
++        },
++      };
++    },
++    async create(values) {
++      if (model === "Activity" && failActivity) throw new Error("History unavailable");
++      if (model === "PropertyContact" && data[model].some(row => row.propertyId === values.propertyId && row.contactId === values.contactId)) throw new Error("Duplicate");
++      const row = { id: Math.max(0, ...data[model].map(row => row.id)) + 1, ...values };
++      data[model].push(row);
++      return row;
++    },
++  }]));
++  const db = { orm: { public: collections }, async transaction(fn) {
++    const before = structuredClone(data);
++    try { return await fn({ orm: this.orm }); }
++    catch (error) { data = before; throw error; }
++  } };
++  const refreshed = [];
++  const actions = load("app/actions.ts", {
++    "@/src/prisma/db": { db }, "@/src/crm-input": input,
++    "next/cache": { revalidatePath: (...args) => refreshed.push(args) },
++    "next/navigation": { redirect: path => { throw new Error("REDIRECT:" + path); } },
++  });
++  return { actions, get data() { return data; }, refreshed, failActivity() { failActivity = true; }, failDelete() { failDelete = true; } };
++}
++
++test("reject malformed IDs, invalid statuses and impossible dates", () => {
++  for (const id of ["", "0", "-1", "1.5", "1x", "9007199254740992"]) assert.throws(() => input.recordId(id));
++  assert.throws(() => input.pipelineStatus("INVALID"));
++  assert.throws(() => input.taskStatus("DELETED"));
++  assert.throws(() => input.optionalDate(form({ dueDate: "2026-02-30" }), "dueDate"));
++  assert.equal(input.optionalDate(form({ dueDate: "" }), "dueDate"), null);
++  assert.equal(input.optionalDate(form({ dueDate: "2028-02-29" }), "dueDate"), "2028-02-29T12:00:00.000Z");
++});
++test("money remains a precise string; optional fields clear to null", () => {
++  const parsed = input.propertyInput(form({ address: "A", city: "B", state: "C", zipCode: "00123", askingPrice: "9007199254740993.12" }));
++  assert.equal(parsed.askingPrice, "9007199254740993.12");
++  assert.equal(parsed.zipCode, "00123");
++  assert.equal(parsed.notes, null);
++  assert.throws(() => input.propertyInput(form({ address: "A", city: "B", state: "C", zipCode: "1", askingPrice: "-1" })));
++});
++test("property deletion requires explicit confirmation", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.deleteProperty(form({ id: 1 })), /confirmation/);
++  assert.equal(f.data.Property.length, 2);
++});
++test("property deletion preserves contacts, tasks, history and unrelated links", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.deleteProperty(form({ id: 1, confirm: "DELETE" })), /REDIRECT:\/properties/);
++  assert.equal(f.data.Property.length, 1);
++  assert.equal(f.data.Property[0].id, 2);
++  assert.equal(f.data.Contact.length, 2);
++  assert.equal(f.data.Task.length, 2);
++  assert.equal(f.data.Task[0].propertyId, null);
++  assert.equal(f.data.Task[0].contactId, 3);
++  assert.equal(f.data.Activity[0].propertyId, null);
++  assert.equal(f.data.Activity[0].contactId, 3);
++  assert.equal(f.data.PropertyContact[0].id, 6);
++});
++test("failed final deletion rolls back all relationship cleanup", async () => {
++  const f = fixture(); f.failDelete();
++  await assert.rejects(f.actions.deleteProperty(form({ id: 1, confirm: "DELETE" })), /FK conflict/);
++  assert.equal(f.data.Task[0].propertyId, 1);
++  assert.equal(f.data.Activity[0].propertyId, 1);
++  assert.equal(f.data.PropertyContact.length, 2);
++  assert.equal(f.data.Property.length, 2);
++});
++test("contact deletion preserves properties and the other side of task/history links", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.deleteContact(form({ id: 3, confirm: "DELETE" })), /REDIRECT:\/contacts/);
++  assert.equal(f.data.Property.length, 2);
++  assert.equal(f.data.Contact[0].id, 4);
++  assert.equal(f.data.Task[0].contactId, null);
++  assert.equal(f.data.Task[0].propertyId, 1);
++  assert.equal(f.data.Activity[0].propertyId, 1);
++  assert.equal(f.data.PropertyContact[0].id, 6);
++});
++test("task completion/reopening writes related activity and repeated status is quiet", async () => {
++  const f = fixture();
++  await f.actions.setTaskStatus(form({ id: 7, status: "COMPLETED" }));
++  await f.actions.setTaskStatus(form({ id: 7, status: "COMPLETED" }));
++  assert.equal(f.data.Activity.length, 2);
++  assert.equal(f.data.Activity[1].contactId, 3);
++  assert.equal(f.data.Activity[1].propertyId, 1);
++  await f.actions.setTaskStatus(form({ id: 7, status: "PENDING" }));
++  assert.equal(f.data.Task[0].status, "PENDING");
++  assert.match(f.data.Activity[2].description, /reopened/);
++});
++test("history failure rolls back task mutation", async () => {
++  const f = fixture(); f.failActivity();
++  await assert.rejects(f.actions.setTaskStatus(form({ id: 7, status: "COMPLETED" })), /History unavailable/);
++  assert.equal(f.data.Task[0].status, "PENDING");
++});
++test("linking updates a role without inserting duplicates", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.linkContact(form({ propertyId: 1, contactId: 3, role: "Attorney" })), /REDIRECT/);
++  assert.equal(f.data.PropertyContact.length, 2);
++  assert.equal(f.data.PropertyContact[0].role, "Attorney");
++  await assert.rejects(f.actions.linkContact(form({ propertyId: 1, contactId: 3, role: "Attorney" })), /REDIRECT/);
++  assert.equal(f.data.Activity.length, 2);
++});
++test("new relationship appears once and history references both records", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.linkContact(form({ propertyId: 2, contactId: 3, role: "Agent", from: "contact" })), /REDIRECT:\/contacts\/3/);
++  assert.equal(f.data.PropertyContact.length, 3);
++  assert.equal(f.data.Activity[1].propertyId, 2);
++  assert.equal(f.data.Activity[1].contactId, 3);
++});
++test("pipeline changes and property edits preserve identity and log stage transition", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.updatePropertyStatus(form({ propertyId: 1, status: "QUALIFIED" })), /REDIRECT/);
++  await assert.rejects(f.actions.updateProperty(form({ id: 1, address: "11 Oak St", city: "Tulsa", state: "OK", zipCode: "74101", status: "UNDER_CONTRACT" })), /REDIRECT:\/properties\/1/);
++  assert.equal(f.data.Property.length, 2);
++  assert.equal(f.data.Property[0].id, 1);
++  assert.equal(f.data.Property[0].address, "11 Oak St");
++  assert.equal(f.data.Activity.filter(a => a.type === "PIPELINE_CHANGED").length, 2);
++});
++test("contact editing updates the existing ID and logs history", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.updateContact(form({ id: 3, firstName: "Pat", lastName: "Smith", email: "pat@example.com" })), /REDIRECT:\/contacts\/3/);
++  assert.equal(f.data.Contact.length, 2);
++  assert.equal(f.data.Contact[0].lastName, "Smith");
++  assert.equal(f.data.Activity[1].contactId, 3);
++});
++test("task edit supports both relationships, clearing them, and no invented date", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.updateTask(form({ id: 7, title: "Updated", status: "PENDING", propertyId: 2, contactId: 4 })), /REDIRECT/);
++  assert.equal(f.data.Task[0].propertyId, 2);
++  assert.equal(f.data.Task[0].contactId, 4);
++  await assert.rejects(f.actions.updateTask(form({ id: 7, title: "General", status: "PENDING" })), /REDIRECT/);
++  assert.equal(f.data.Task[0].propertyId, null);
++  assert.equal(f.data.Task[0].contactId, null);
++  assert.equal(f.data.Task[0].dueDate, null);
++});
++test("invalid task relationship makes no changes", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.createTask(form({ title: "Bad reference", propertyId: 999 })), /no longer exists/);
++  assert.equal(f.data.Task.length, 2);
++});
++test("task deletion confirms and deletes only the specified task", async () => {
++  const f = fixture();
++  await assert.rejects(f.actions.deleteTask(form({ id: 7 })), /confirmation/);
++  await assert.rejects(f.actions.deleteTask(form({ id: 7, confirm: "DELETE" })), /REDIRECT/);
++  assert.equal(f.data.Task.length, 1);
++  assert.equal(f.data.Task[0].id, 8);
++  assert.equal(f.data.Property.length, 2);
++  assert.equal(f.data.Contact.length, 2);
++});
+-- 
+2.53.0.windows.3
+
