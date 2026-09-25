@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'d56c37e38e845834ccb327c5872eb9bf43cd7f3ecaf8277c4fc788392822a2cc'>;
+  StorageHashBase<'696f21a97624edcb948faa618e84d7d9e248eeb7675c1ffa795145d541876b14'>;
 export type ExecutionHash =
   ExecutionHashBase<'fd9c197d4a201a13941c67303adb79a5f41f08de7ec43e2c5eadfe8be9f1492e'>;
 export type ProfileHash =
@@ -269,10 +269,6 @@ export type FieldOutputTypes = {
       readonly county: CodecTypes['pg/text@1']['output'] | null;
       readonly source: CodecTypes['pg/text@1']['output'] | null;
       readonly askingPrice: CodecTypes['pg/numeric@1']['output'] | null;
-      readonly arv: CodecTypes['pg/numeric@1']['output'] | null;
-      readonly assignmentFee: CodecTypes['pg/numeric@1']['output'] | null;
-      readonly buyerPercentage: CodecTypes['pg/numeric@1']['output'] | null;
-      readonly sellerMotivation: CodecTypes['pg/text@1']['output'] | null;
       readonly estimatedValue: CodecTypes['pg/numeric@1']['output'] | null;
       readonly repairEstimate: CodecTypes['pg/numeric@1']['output'] | null;
       readonly offerAmount: CodecTypes['pg/numeric@1']['output'] | null;
@@ -343,10 +339,6 @@ export type FieldInputTypes = {
       readonly county: CodecTypes['pg/text@1']['input'] | null;
       readonly source: CodecTypes['pg/text@1']['input'] | null;
       readonly askingPrice: CodecTypes['pg/numeric@1']['input'] | null;
-      readonly arv: CodecTypes['pg/numeric@1']['input'] | null;
-      readonly assignmentFee: CodecTypes['pg/numeric@1']['input'] | null;
-      readonly buyerPercentage: CodecTypes['pg/numeric@1']['input'] | null;
-      readonly sellerMotivation: CodecTypes['pg/text@1']['input'] | null;
       readonly estimatedValue: CodecTypes['pg/numeric@1']['input'] | null;
       readonly repairEstimate: CodecTypes['pg/numeric@1']['input'] | null;
       readonly offerAmount: CodecTypes['pg/numeric@1']['input'] | null;
@@ -410,10 +402,7 @@ export type StorageColumnTypes = {
     };
     readonly property: {
       readonly address: CodecTypes['pg/text@1']['output'];
-      readonly arv: CodecTypes['pg/numeric@1']['output'] | null;
       readonly askingPrice: CodecTypes['pg/numeric@1']['output'] | null;
-      readonly assignmentFee: CodecTypes['pg/numeric@1']['output'] | null;
-      readonly buyerPercentage: CodecTypes['pg/numeric@1']['output'] | null;
       readonly city: CodecTypes['pg/text@1']['output'];
       readonly county: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -424,7 +413,6 @@ export type StorageColumnTypes = {
       readonly notes: CodecTypes['pg/text@1']['output'] | null;
       readonly offerAmount: CodecTypes['pg/numeric@1']['output'] | null;
       readonly repairEstimate: CodecTypes['pg/numeric@1']['output'] | null;
-      readonly sellerMotivation: CodecTypes['pg/text@1']['output'] | null;
       readonly source: CodecTypes['pg/text@1']['output'] | null;
       readonly state: CodecTypes['pg/text@1']['output'];
       readonly status:
@@ -484,10 +472,7 @@ export type StorageColumnInputTypes = {
     };
     readonly property: {
       readonly address: CodecTypes['pg/text@1']['input'];
-      readonly arv: CodecTypes['pg/numeric@1']['input'] | null;
       readonly askingPrice: CodecTypes['pg/numeric@1']['input'] | null;
-      readonly assignmentFee: CodecTypes['pg/numeric@1']['input'] | null;
-      readonly buyerPercentage: CodecTypes['pg/numeric@1']['input'] | null;
       readonly city: CodecTypes['pg/text@1']['input'];
       readonly county: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -498,7 +483,6 @@ export type StorageColumnInputTypes = {
       readonly notes: CodecTypes['pg/text@1']['input'] | null;
       readonly offerAmount: CodecTypes['pg/numeric@1']['input'] | null;
       readonly repairEstimate: CodecTypes['pg/numeric@1']['input'] | null;
-      readonly sellerMotivation: CodecTypes['pg/text@1']['input'] | null;
       readonly source: CodecTypes['pg/text@1']['input'] | null;
       readonly state: CodecTypes['pg/text@1']['input'];
       readonly status:
@@ -547,10 +531,6 @@ export namespace Models {
     county: CodecTypes['pg/text@1']['output'] | null;
     source: CodecTypes['pg/text@1']['output'] | null;
     askingPrice: CodecTypes['pg/numeric@1']['output'] | null;
-    arv: CodecTypes['pg/numeric@1']['output'] | null;
-    assignmentFee: CodecTypes['pg/numeric@1']['output'] | null;
-    buyerPercentage: CodecTypes['pg/numeric@1']['output'] | null;
-    sellerMotivation: CodecTypes['pg/text@1']['output'] | null;
     estimatedValue: CodecTypes['pg/numeric@1']['output'] | null;
     repairEstimate: CodecTypes['pg/numeric@1']['output'] | null;
     offerAmount: CodecTypes['pg/numeric@1']['output'] | null;
@@ -833,26 +813,6 @@ type ContractBase = Omit<
                 readonly askingPrice: {
                   readonly nativeType: 'numeric';
                   readonly codecId: 'pg/numeric@1';
-                  readonly nullable: true;
-                };
-                readonly arv: {
-                  readonly nativeType: 'numeric';
-                  readonly codecId: 'pg/numeric@1';
-                  readonly nullable: true;
-                };
-                readonly assignmentFee: {
-                  readonly nativeType: 'numeric';
-                  readonly codecId: 'pg/numeric@1';
-                  readonly nullable: true;
-                };
-                readonly buyerPercentage: {
-                  readonly nativeType: 'numeric';
-                  readonly codecId: 'pg/numeric@1';
-                  readonly nullable: true;
-                };
-                readonly sellerMotivation: {
-                  readonly nativeType: 'text';
-                  readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                 };
                 readonly estimatedValue: {
@@ -1324,22 +1284,6 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
               };
-              readonly arv: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
-              };
-              readonly assignmentFee: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
-              };
-              readonly buyerPercentage: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
-              };
-              readonly sellerMotivation: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
               readonly estimatedValue: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/numeric@1' };
@@ -1430,10 +1374,6 @@ type ContractBase = Omit<
                 readonly county: { readonly column: 'county' };
                 readonly source: { readonly column: 'source' };
                 readonly askingPrice: { readonly column: 'askingPrice' };
-                readonly arv: { readonly column: 'arv' };
-                readonly assignmentFee: { readonly column: 'assignmentFee' };
-                readonly buyerPercentage: { readonly column: 'buyerPercentage' };
-                readonly sellerMotivation: { readonly column: 'sellerMotivation' };
                 readonly estimatedValue: { readonly column: 'estimatedValue' };
                 readonly repairEstimate: { readonly column: 'repairEstimate' };
                 readonly offerAmount: { readonly column: 'offerAmount' };

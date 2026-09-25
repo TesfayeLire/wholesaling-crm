@@ -46,8 +46,16 @@ export async function updateProperty(form: FormData) {
   await db.transaction(async tx => {
     const before = await tx.orm.public.Property.where({ id }).first();
     if (!before) throw new Error("Property no longer exists.");
-    if (!Object.entries(data).some(([key, value]) => before[key as keyof typeof data] !== value)) return;
-    await tx.orm.public.Property.where({ id }).update(data);
+    const expected = text(form, "updatedAt");
+    if (expected && expected !== before.updatedAt) throw new Error("This property changed. Reload before saving.");
+    const sameDay = (before.nextActionDate ?? "").slice(0, 10) === (data.nextActionDate ?? "").slice(0, 10);
+    if (sameDay) data.nextActionDate = before.nextActionDate;
+    const decimalKeys = ["askingPrice", "estimatedValue", "repairEstimate", "offerAmount"];
+    const comparable = (value: unknown) => typeof value === "string" && /^\d+(\.\d+)?$/.test(value) ? value.replace(/^0+(?=\d)/, "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") : value;
+    if (!Object.entries(data).some(([key, value]) => decimalKeys.includes(key) ? comparable(before[key as keyof typeof data]) !== comparable(value) : before[key as keyof typeof data] !== value)) return;
+    const changed = await tx.orm.public.Property.where(expected ? { id, updatedAt: expected } : { id }).update(data);
+    if (expected && !changed) throw new Error("This property changed while saving. Reload and try again.");
+    if (!sameDay || before.nextAction !== data.nextAction) await activity(tx, "FOLLOW_UP_UPDATED", "Property follow-up updated.", id);
     await activity(tx, "PROPERTY_UPDATED", "Property details updated.", id);
     if (before.status !== data.status) await activity(tx, "PIPELINE_CHANGED", `Pipeline changed from ${before.status} to ${data.status}.`, id);
   });

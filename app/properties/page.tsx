@@ -1,3 +1,5 @@
+import { stageLabels } from "@/src/pipeline";
+import { displayDate, followUpStatus } from "@/src/follow-up";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
 
@@ -53,14 +55,14 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
             <option value="NEW_LEAD">New Lead</option>
             <option value="RESEARCHING">Researching</option>
             <option value="CONTACTED">Contacted</option>
-            <option value="QUALIFIED">Qualified</option>
+            <option value="QUALIFIED">Qualified (existing stage)</option>
             <option value="OFFER_MADE">Offer Made</option>
-            <option value="NEGOTIATING">Negotiating</option>
+            <option value="NEGOTIATING">Negotiating (existing stage)</option>
             <option value="UNDER_CONTRACT">Under Contract</option>
-            <option value="DISPOSITION">Disposition</option>
-            <option value="CLOSED">Closed</option>
-            <option value="DEAD">Dead</option>
-            <option value="NURTURE">Nurture / Follow-Up</option>
+            <option value="DISPOSITION">Marketing to Buyers</option>
+            <option value="CLOSED">Assigned / Closed</option>
+            <option value="DEAD">Dead / Not a Deal</option>
+            <option value="NURTURE">Follow-Up</option>
           </select>
           <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm text-white">Search / Filter</button>
           <Link href="/properties" className="px-4 py-2 text-sm underline">Clear</Link>
@@ -94,9 +96,9 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
                   </p>
                 </div>
 
-                <span>{property.status}</span>
+                <span>{stageLabels[property.status]}</span>
                 <span>{property.askingPrice}</span>
-                <span>{property.nextAction}</span>
+                <div><p>{property.nextAction || "No next action"}</p><p className="text-xs text-slate-500">{followUpStatus(property.nextActionDate)}{property.nextActionDate ? " · " + displayDate(property.nextActionDate) : ""}</p></div>
               </div>
             ))
           )}

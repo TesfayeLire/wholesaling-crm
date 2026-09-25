@@ -173,14 +173,14 @@ export default function NewPropertyPage() {
                   <option value="NEW_LEAD">New Lead</option>
                   <option value="RESEARCHING">Researching</option>
                   <option value="CONTACTED">Contacted</option>
-                  <option value="QUALIFIED">Qualified</option>
+                  <option value="QUALIFIED">Qualified (existing stage)</option>
                   <option value="OFFER_MADE">Offer Made</option>
-                  <option value="NEGOTIATING">Negotiating</option>
+                  <option value="NEGOTIATING">Negotiating (existing stage)</option>
                   <option value="UNDER_CONTRACT">Under Contract</option>
-                  <option value="DISPOSITION">Disposition</option>
-                  <option value="CLOSED">Closed</option>
-                  <option value="DEAD">Dead</option>
-                  <option value="NURTURE">Nurture / Follow-Up</option>
+                  <option value="DISPOSITION">Marketing to Buyers</option>
+                  <option value="CLOSED">Assigned / Closed</option>
+                  <option value="DEAD">Dead / Not a Deal</option>
+                  <option value="NURTURE">Follow-Up</option>
                 </select>
               </label>
 

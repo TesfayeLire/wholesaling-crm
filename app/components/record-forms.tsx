@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { Contact, Property, Task } from "@/src/crm-data";
 import { pipelineStatuses } from "@/src/crm-input";
+import { stageLabels } from "@/src/pipeline";
 import { ActionForm, SubmitButton } from "./action-form";
 import { Field, Section, inputClass, linkClass } from "./record-ui";
 
 type Action = (form: FormData) => Promise<void>;
 export function PropertyForm({ property, action }: { property: Property; action: Action }) {
-  return <ActionForm action={action}><input type="hidden" name="id" value={property.id}/>
+  return <ActionForm action={action}><input type="hidden" name="id" value={property.id}/><input type="hidden" name="updatedAt" value={property.updatedAt}/>
     <Section title="Property information"><div className="grid gap-5 md:grid-cols-2">
       <Field name="address" label="Street address" value={property.address} required/>
       <Field name="city" label="City" value={property.city} required/>
@@ -18,9 +19,9 @@ export function PropertyForm({ property, action }: { property: Property; action:
       <Field name="estimatedValue" label="Estimated value" value={property.estimatedValue} type="number"/>
       <Field name="repairEstimate" label="Repair estimate" value={property.repairEstimate} type="number"/>
       <Field name="offerAmount" label="Offer amount" value={property.offerAmount} type="number"/>
-      <label><span className="mb-2 block text-sm font-medium">Pipeline status</span><select name="status" defaultValue={property.status} className={inputClass}>{pipelineStatuses.map(status => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}</select></label>
+      <label><span className="mb-2 block text-sm font-medium">Pipeline status</span><select name="status" defaultValue={property.status} className={inputClass}>{pipelineStatuses.map(status => <option key={status} value={status}>{stageLabels[status]}</option>)}</select></label>
       <Field name="nextAction" label="Next action" value={property.nextAction}/>
-      <Field name="nextActionDate" label="Next action date" value={property.nextActionDate?.slice(0, 10)} type="date"/>
+      <Field name="nextActionDate" label="Follow-up date" value={property.nextActionDate?.slice(0, 10)} type="date"/>
       <Field name="notes" label="Notes" value={property.notes} type="textarea"/>
     </div></Section>
     <div className="flex gap-3"><SubmitButton>Save property</SubmitButton><Link className={linkClass} href={`/properties/${property.id}`}>Cancel</Link></div>

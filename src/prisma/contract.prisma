@@ -28,6 +28,10 @@ model Property {
   county         String?
   source         String?
   askingPrice    Decimal?
+  arv            Decimal?
+  assignmentFee  Decimal?
+  buyerPercentage Decimal?
+  sellerMotivation String?
   estimatedValue Decimal?
   repairEstimate Decimal?
   offerAmount    Decimal?

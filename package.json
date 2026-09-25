@@ -10,7 +10,7 @@
     "lint": "eslint",
     "postinstall": "prisma skills sync || exit 0",
     "contract:emit": "prisma contract emit",
-    "test": "node --test --test-isolation=none tests/phase2.test.mjs"
+    "test": "node --test --test-isolation=none tests/*.test.mjs"
   },
   "dependencies": {
     "@prisma/orm-postgres": "8.0.0-rc.11",
