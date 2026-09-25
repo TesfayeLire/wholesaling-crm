@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -23,7 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-950">
+        <nav aria-label="Main navigation" className="flex flex-wrap gap-5 border-b border-slate-200 bg-white px-6 py-3 text-sm font-medium">
+          {[["Dashboard", "/"], ["Properties", "/properties"], ["Contacts", "/contacts"], ["Pipeline", "/pipeline"], ["Tasks", "/tasks"]].map(([label, href]) => <Link key={href} href={href} className="hover:underline">{label}</Link>)}
+        </nav>{children}</body>
     </html>
   );
 }

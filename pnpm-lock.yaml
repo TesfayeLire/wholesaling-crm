@@ -127,7 +127,7 @@ importers:
     devDependencies:
       '@prisma/cli-engine':
         specifier: 0.4.0
-        version: 0.4.0
+        version: 0.4.0(@prisma/management-api-sdk@1.69.0)(magicast@0.5.5)
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.3
