@@ -1,3 +1,5 @@
+import { PropertyWorkflow } from "@/app/components/property-workflow";
+import { stageLabels } from "@/src/pipeline";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
 import { getProperty, dateLabel } from "@/src/crm-data";
@@ -17,11 +19,12 @@ export default async function PropertyDetail({ params }: { params: Promise<{ id:
     ["Address", property.address], ["City", property.city], ["State", property.state], ["ZIP code", property.zipCode],
     ["County", property.county], ["Source", property.source], ["Asking price", property.askingPrice],
     ["Estimated value", property.estimatedValue], ["Repair estimate", property.repairEstimate], ["Offer amount", property.offerAmount],
-    ["Pipeline status", property.status.replaceAll("_", " ")], ["Next action", property.nextAction],
+    ["Pipeline status", stageLabels[property.status]], ["Next action", property.nextAction],
     ["Next action date", dateLabel(property.nextActionDate)], ["Notes", property.notes],
   ];
   return <RecordPage title={property.address} back="/properties">
     <Link className={linkClass} href={`/properties/${property.id}/edit`}>Edit property</Link>
+    <PropertyWorkflow property={property}/>
     <Section title="Property details"><dl className="grid gap-5 sm:grid-cols-2">{fields.map(([label, value]) => <div key={label}><dt className="text-sm text-slate-500">{label}</dt><dd className="whitespace-pre-wrap break-words">{value ?? "—"}</dd></div>)}</dl></Section>
     <Section title="Contacts">{links.length ? <ul className="space-y-3">{links.map(link => {
       const contact = contacts.find(c => c.id === link.contactId);

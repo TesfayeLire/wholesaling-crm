@@ -1,0 +1,170 @@
+[
+  {
+    "id": "column.public.property.arv",
+    "label": "Add column \"arv\" to \"property\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "arv",
+        "table": "property"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"arv\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "arv"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"arv\"",
+        "sql": "ALTER TABLE \"public\".\"property\" ADD COLUMN \"arv\" numeric"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"arv\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "arv"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.property.assignmentFee",
+    "label": "Add column \"assignmentFee\" to \"property\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "assignmentFee",
+        "table": "property"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"assignmentFee\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "assignmentFee"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"assignmentFee\"",
+        "sql": "ALTER TABLE \"public\".\"property\" ADD COLUMN \"assignmentFee\" numeric"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"assignmentFee\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "assignmentFee"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.property.buyerPercentage",
+    "label": "Add column \"buyerPercentage\" to \"property\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "buyerPercentage",
+        "table": "property"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"buyerPercentage\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "buyerPercentage"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"buyerPercentage\"",
+        "sql": "ALTER TABLE \"public\".\"property\" ADD COLUMN \"buyerPercentage\" numeric"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"buyerPercentage\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "buyerPercentage"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.property.sellerMotivation",
+    "label": "Add column \"sellerMotivation\" to \"property\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "sellerMotivation",
+        "table": "property"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"sellerMotivation\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "sellerMotivation"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"sellerMotivation\"",
+        "sql": "ALTER TABLE \"public\".\"property\" ADD COLUMN \"sellerMotivation\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"sellerMotivation\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "sellerMotivation"
+        ]
+      }
+    ]
+  }
+]

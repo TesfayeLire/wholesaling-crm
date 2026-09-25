@@ -343,7 +343,28 @@
                   "kind": "scalar"
                 }
               },
+              "arv": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar"
+                }
+              },
               "askingPrice": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar"
+                }
+              },
+              "assignmentFee": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/numeric@1",
+                  "kind": "scalar"
+                }
+              },
+              "buyerPercentage": {
                 "nullable": true,
                 "type": {
                   "codecId": "pg/numeric@1",
@@ -417,6 +438,13 @@
                 "nullable": true,
                 "type": {
                   "codecId": "pg/numeric@1",
+                  "kind": "scalar"
+                }
+              },
+              "sellerMotivation": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
                   "kind": "scalar"
                 }
               },
@@ -514,8 +542,17 @@
                 "address": {
                   "column": "address"
                 },
+                "arv": {
+                  "column": "arv"
+                },
                 "askingPrice": {
                   "column": "askingPrice"
+                },
+                "assignmentFee": {
+                  "column": "assignmentFee"
+                },
+                "buyerPercentage": {
+                  "column": "buyerPercentage"
                 },
                 "city": {
                   "column": "city"
@@ -546,6 +583,9 @@
                 },
                 "repairEstimate": {
                   "column": "repairEstimate"
+                },
+                "sellerMotivation": {
+                  "column": "sellerMotivation"
                 },
                 "source": {
                   "column": "source"
@@ -984,7 +1024,22 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "arv": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true
+                },
                 "askingPrice": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true
+                },
+                "assignmentFee": {
+                  "codecId": "pg/numeric@1",
+                  "nativeType": "numeric",
+                  "nullable": true
+                },
+                "buyerPercentage": {
                   "codecId": "pg/numeric@1",
                   "nativeType": "numeric",
                   "nullable": true
@@ -1045,6 +1100,11 @@
                 "repairEstimate": {
                   "codecId": "pg/numeric@1",
                   "nativeType": "numeric",
+                  "nullable": true
+                },
+                "sellerMotivation": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
                   "nullable": true
                 },
                 "source": {
@@ -1357,7 +1417,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "696f21a97624edcb948faa618e84d7d9e248eeb7675c1ffa795145d541876b14"
+    "storageHash": "d56c37e38e845834ccb327c5872eb9bf43cd7f3ecaf8277c4fc788392822a2cc"
   },
   "execution": {
     "executionHash": "fd9c197d4a201a13941c67303adb79a5f41f08de7ec43e2c5eadfe8be9f1492e",
