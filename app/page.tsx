@@ -1,4 +1,5 @@
-import { NeedsAttention } from "@/app/components/needs-attention";
+import { CommandCenter } from "@/app/components/command-center";
+import { getCommandCenter } from "@/src/command-center-data";
 import { connection } from "next/server";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
@@ -9,11 +10,13 @@ const navigation = [
   { label: "Contacts", href: "/contacts" },
   { label: "Pipeline", href: "/pipeline" },
   { label: "Tasks", href: "/tasks" },
+  { label: "Follow-Ups", href: "/follow-ups" },
 ];
 
 export default async function Home() {
   await connection();
-  const properties = await db.orm.public.Property.all();
+  const center = await getCommandCenter();
+  const properties = center.properties;
   const tasks = await db.orm.public.Task.all();
 
   const activeLeads = properties.filter(
@@ -129,7 +132,7 @@ export default async function Home() {
             ))}
           </section>
 
-          <NeedsAttention properties={properties}/>
+          <section className="mt-8"><CommandCenter data={center} compact/></section>
           <section className="mt-8 grid gap-6 xl:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">

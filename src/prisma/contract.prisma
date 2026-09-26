@@ -19,7 +19,14 @@ enum TaskStatus {
   COMPLETED
 }
 
+enum LeadTemperature {
+  HOT
+  WARM
+  COLD
+}
+
 model Property {
+  temperature LeadTemperature?
   id             Int            @id @default(autoincrement())
   address        String
   city           String

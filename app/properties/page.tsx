@@ -1,3 +1,4 @@
+import { TemperatureBadge } from "@/app/components/command-center";
 import { stageLabels } from "@/src/pipeline";
 import { displayDate, followUpStatus } from "@/src/follow-up";
 import Link from "next/link";
@@ -96,7 +97,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
                   </p>
                 </div>
 
-                <span>{stageLabels[property.status]}</span>
+                <div><p>{stageLabels[property.status]}</p><TemperatureBadge value={property.temperature}/></div>
                 <span>{property.askingPrice}</span>
                 <div><p>{property.nextAction || "No next action"}</p><p className="text-xs text-slate-500">{followUpStatus(property.nextActionDate)}{property.nextActionDate ? " · " + displayDate(property.nextActionDate) : ""}</p></div>
               </div>

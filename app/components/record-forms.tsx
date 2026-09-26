@@ -46,7 +46,7 @@ export function TaskRelations({ properties, contacts, task }: { properties: Prop
   </div>;
 }
 export function TaskForm({ task, properties, contacts, action }: { task: Task; properties: Property[]; contacts: Contact[]; action: Action }) {
-  return <ActionForm action={action}><input type="hidden" name="id" value={task.id}/>
+  return <ActionForm action={action}><input type="hidden" name="id" value={task.id}/><input type="hidden" name="updatedAt" value={task.updatedAt}/>
     <Section title="Task information">
       <Field name="title" label="Title" value={task.title} required/>
       <Field name="description" label="Description" value={task.description} type="textarea"/>
