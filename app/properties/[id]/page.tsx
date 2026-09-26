@@ -1,3 +1,4 @@
+import { OutreachPanel } from "@/app/components/outreach-panel";
 import { PropertyWorkflow } from "@/app/components/property-workflow";
 import { stageLabels } from "@/src/pipeline";
 import Link from "next/link";
@@ -24,6 +25,7 @@ export default async function PropertyDetail({ params }: { params: Promise<{ id:
   ];
   return <RecordPage title={property.address} back="/properties">
     <Link className={linkClass} href={`/properties/${property.id}/edit`}>Edit property</Link>
+    <OutreachPanel property={property} contacts={contacts.filter(c => links.some(l => l.contactId === c.id))} activities={activities} tasks={tasks}/>
     <PropertyWorkflow property={property}/>
     <Section title="Property details"><dl className="grid gap-5 sm:grid-cols-2">{fields.map(([label, value]) => <div key={label}><dt className="text-sm text-slate-500">{label}</dt><dd className="whitespace-pre-wrap break-words">{value ?? "—"}</dd></div>)}</dl></Section>
     <Section title="Contacts">{links.length ? <ul className="space-y-3">{links.map(link => {

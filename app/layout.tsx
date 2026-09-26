@@ -26,7 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-950">
         <nav aria-label="Main navigation" className="flex flex-wrap gap-5 border-b border-slate-200 bg-white px-6 py-3 text-sm font-medium">
-          {[["Dashboard", "/"], ["Properties", "/properties"], ["Contacts", "/contacts"], ["Pipeline", "/pipeline"], ["Tasks", "/tasks"]].map(([label, href]) => <Link key={href} href={href} className="hover:underline">{label}</Link>)}
+          {[["Dashboard", "/"], ["Properties", "/properties"], ["Contacts", "/contacts"], ["Pipeline", "/pipeline"], ["Tasks", "/tasks"], ["Follow-Ups", "/follow-ups"]].map(([label, href]) => <Link key={href} href={href} className="hover:underline">{label}</Link>)}
         </nav>{children}</body>
     </html>
   );

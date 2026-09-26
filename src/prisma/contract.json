@@ -29,6 +29,23 @@
     "namespaces": {
       "public": {
         "enum": {
+          "LeadTemperature": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "HOT",
+                "value": "HOT"
+              },
+              {
+                "name": "WARM",
+                "value": "WARM"
+              },
+              {
+                "name": "COLD",
+                "value": "COLD"
+              }
+            ]
+          },
           "PipelineStatus": {
             "codecId": "pg/text@1",
             "members": [
@@ -475,6 +492,19 @@
                   "plane": "domain"
                 }
               },
+              "temperature": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "LeadTemperature",
+                  "namespaceId": "public",
+                  "plane": "domain"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -595,6 +625,9 @@
                 },
                 "status": {
                   "column": "status"
+                },
+                "temperature": {
+                  "column": "temperature"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -1016,6 +1049,11 @@
                   "expression": "\"status\" IN ('NEW_LEAD', 'RESEARCHING', 'CONTACTED', 'QUALIFIED', 'OFFER_MADE', 'NEGOTIATING', 'UNDER_CONTRACT', 'DISPOSITION', 'CLOSED', 'DEAD', 'NURTURE')",
                   "name": "property_status_check_03532dae",
                   "prefix": "property_status_check"
+                },
+                {
+                  "expression": "\"temperature\" IN ('HOT', 'WARM', 'COLD')",
+                  "name": "property_temperature_check_f31e8577",
+                  "prefix": "property_temperature_check"
                 }
               ],
               "columns": {
@@ -1128,6 +1166,17 @@
                   "valueSet": {
                     "entityKind": "valueSet",
                     "entityName": "PipelineStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "temperature": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "LeadTemperature",
                     "namespaceId": "public",
                     "plane": "storage"
                   }
@@ -1388,6 +1437,14 @@
             }
           },
           "valueSet": {
+            "LeadTemperature": {
+              "kind": "valueSet",
+              "values": [
+                "HOT",
+                "WARM",
+                "COLD"
+              ]
+            },
             "PipelineStatus": {
               "kind": "valueSet",
               "values": [
@@ -1417,7 +1474,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "d56c37e38e845834ccb327c5872eb9bf43cd7f3ecaf8277c4fc788392822a2cc"
+    "storageHash": "52f9253a8994b63f7048a7eceb64c92c61cd10acd9a4ad7d9cc000dfe4305e95"
   },
   "execution": {
     "executionHash": "fd9c197d4a201a13941c67303adb79a5f41f08de7ec43e2c5eadfe8be9f1492e",

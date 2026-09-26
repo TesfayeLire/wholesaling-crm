@@ -12,7 +12,7 @@ export function TaskList({ tasks, properties, contacts }: { tasks: Task[]; prope
       <div><Link href={`/tasks/${task.id}/edit`} className="font-semibold underline">{task.title}</Link><p className="whitespace-pre-wrap text-slate-500">{task.description}</p></div>
       <span>{task.dueDate ? `Due ${dateLabel(task.dueDate)}` : "No due date"}</span>
       <div className="space-y-2"><p>{task.status === "COMPLETED" ? "Completed" : "Pending"}</p><ActionForm action={setTaskStatus}>
-        <input type="hidden" name="id" value={task.id}/><input type="hidden" name="status" value={task.status === "COMPLETED" ? "PENDING" : "COMPLETED"}/>
+        <input type="hidden" name="id" value={task.id}/><input type="hidden" name="updatedAt" value={task.updatedAt}/><input type="hidden" name="status" value={task.status === "COMPLETED" ? "PENDING" : "COMPLETED"}/>
         <SubmitButton>{task.status === "COMPLETED" ? "Reopen" : "Complete"}</SubmitButton>
       </ActionForm></div>
       <div className="space-y-2">{property && <Link className="block underline" href={`/properties/${property.id}`}>{property.address}</Link>}{contact && <Link className="block underline" href={`/contacts/${contact.id}`}>{contact.firstName} {contact.lastName}</Link>}{!task.propertyId && !task.contactId && <span>General task</span>}<Link className="block underline" href={`/tasks/${task.id}/edit`}>Edit / Delete</Link></div>

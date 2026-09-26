@@ -1,0 +1,86 @@
+[
+  {
+    "id": "column.public.property.temperature",
+    "label": "Add column \"temperature\" to \"property\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "temperature",
+        "table": "property"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"temperature\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "temperature"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"temperature\"",
+        "sql": "ALTER TABLE \"public\".\"property\" ADD COLUMN \"temperature\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"temperature\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "property",
+          "temperature"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "checkConstraint.property.property_temperature_check_f31e8577",
+    "label": "Add check constraint \"property_temperature_check_f31e8577\" on \"property\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "checkConstraint",
+        "name": "property_temperature_check_f31e8577",
+        "table": "property"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"property_temperature_check_f31e8577\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "property_temperature_check_f31e8577",
+          "public",
+          "\"public\".\"property\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add check constraint \"property_temperature_check_f31e8577\"",
+        "sql": "ALTER TABLE \"public\".\"property\" ADD CONSTRAINT \"property_temperature_check_f31e8577\" CHECK (\"temperature\" IN ('HOT', 'WARM', 'COLD'))"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"property_temperature_check_f31e8577\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "property_temperature_check_f31e8577",
+          "public",
+          "\"public\".\"property\""
+        ]
+      }
+    ]
+  }
+]

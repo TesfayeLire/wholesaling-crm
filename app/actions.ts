@@ -36,6 +36,7 @@ export async function createTask(form: FormData) {
   await db.transaction(async tx => {
     await validateRelations(tx, data.propertyId, data.contactId);
     await tx.orm.public.Task.create(data);
+    await activity(tx, "TASK_CREATED", `Task "${data.title}" scheduled${data.dueDate ? " for " + data.dueDate.slice(0, 10) : " without a due date"}.`, data.propertyId, data.contactId);
   });
   refresh();
   redirect("/tasks");
@@ -138,8 +139,13 @@ export async function updateTask(form: FormData) {
   await db.transaction(async tx => {
     const before = await tx.orm.public.Task.where({ id }).first();
     if (!before) throw new Error("Task no longer exists.");
+    const expected = text(form, "updatedAt");
+    if (expected && expected !== before.updatedAt) throw new Error("This task changed. Reload before saving.");
     await validateRelations(tx, data.propertyId, data.contactId);
-    await tx.orm.public.Task.where({ id }).update(data);
+    if (Object.entries(data).every(([key, value]) => before[key as keyof typeof data] === value)) return;
+    const changed = await tx.orm.public.Task.where(expected ? { id, updatedAt: expected } : { id }).update(data);
+    if (expected && !changed) throw new Error("This task changed while saving. Reload and try again.");
+    if (before.dueDate?.slice(0, 10) !== data.dueDate?.slice(0, 10) || before.title !== data.title) await activity(tx, "TASK_UPDATED", `Task "${data.title}" updated${data.dueDate ? " — due " + data.dueDate.slice(0, 10) : " — no due date"}.`, data.propertyId, data.contactId);
     if (before.status !== data.status) await activity(tx, "TASK_STATUS_CHANGED", `Task "${data.title}" ${data.status === "COMPLETED" ? "completed" : "reopened"}.`, data.propertyId, data.contactId);
   });
   refresh();
@@ -151,8 +157,11 @@ export async function setTaskStatus(form: FormData) {
   await db.transaction(async tx => {
     const before = await tx.orm.public.Task.where({ id }).first();
     if (!before) throw new Error("Task no longer exists.");
+    const expected = text(form, "updatedAt");
+    if (expected && expected !== before.updatedAt) throw new Error("This task changed. Reload before saving.");
     if (before.status === status) return;
-    await tx.orm.public.Task.where({ id }).update({ status });
+    const changed = await tx.orm.public.Task.where(expected ? { id, updatedAt: expected } : { id }).update({ status });
+    if (expected && !changed) throw new Error("This task changed while saving. Reload and try again.");
     await activity(tx, "TASK_STATUS_CHANGED", `Task "${before.title}" ${status === "COMPLETED" ? "completed" : "reopened"}.`, before.propertyId, before.contactId);
   });
   refresh();

@@ -1,3 +1,5 @@
+import { displayDate } from "@/src/follow-up";
+import { OutreachPanel } from "@/app/components/outreach-panel";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
 import { getContact } from "@/src/crm-data";
@@ -16,10 +18,11 @@ export default async function ContactDetail({ params }: { params: Promise<{ id: 
   const name = `${contact.firstName} ${contact.lastName ?? ""}`.trim();
   return <RecordPage title={name} back="/contacts">
     <Link className={linkClass} href={`/contacts/${contact.id}/edit`}>Edit contact</Link>
+    <OutreachPanel contact={contact} activities={activities} tasks={tasks}/>
     <Section title="Contact details"><dl className="grid gap-5 sm:grid-cols-2">{[["First name", contact.firstName], ["Last name", contact.lastName], ["Phone", contact.phone], ["Email", contact.email], ["Notes", contact.notes]].map(([label, value]) => <div key={label}><dt className="text-sm text-slate-500">{label}</dt><dd className="whitespace-pre-wrap break-words">{value ?? "—"}</dd></div>)}</dl></Section>
     <Section title="Properties">{links.length ? <ul className="space-y-3">{links.map(link => {
       const property = properties.find(p => p.id === link.propertyId);
-      return property && <li key={link.id}><Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}, {property.city}</Link><span className="ml-3 text-sm text-slate-500">{link.role ?? "No role set"}</span></li>;
+      return property && <li key={link.id}><Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}, {property.city}</Link><span className="ml-3 text-sm text-slate-500">{link.role ?? "No role set"}</span><p className="text-sm text-slate-500">Next action: {property.nextAction ?? "None"} · {displayDate(property.nextActionDate)}</p></li>;
     })}</ul> : <p>No properties linked.</p>}
       {properties.length > 0 ? <ActionForm action={linkContact}>
         <input type="hidden" name="contactId" value={contact.id}/><input type="hidden" name="from" value="contact"/>
