@@ -1,0 +1,803 @@
+[
+  {
+    "id": "table.acquisitionContract",
+    "label": "Create table \"acquisitionContract\"",
+    "summary": "Creates table \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"acquisitionContract\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"acquisitionContract\"",
+        "sql": "CREATE TABLE \"public\".\"acquisitionContract\" (\n  \"closingDeadline\" timestamptz,\n  \"contactId\" int4,\n  \"contractDate\" timestamptz,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"earnestMoneyAmount\" numeric,\n  \"earnestMoneyDueDate\" timestamptz,\n  \"earnestMoneyStatus\" text DEFAULT 'NOT_DUE' NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"inspectionDeadline\" timestamptz,\n  \"notes\" text,\n  \"offerId\" int4 NOT NULL,\n  \"propertyId\" int4 NOT NULL,\n  \"purchasePrice\" numeric NOT NULL,\n  \"status\" text DEFAULT 'DRAFT' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"acquisitionContract_earnestMoneyStatus_check_492752fe\" CHECK (\"earnestMoneyStatus\" IN ('NOT_DUE', 'DUE', 'PAID', 'WAIVED')),\n  CONSTRAINT \"acquisitionContract_status_check_70ec1399\" CHECK (\"status\" IN ('DRAFT', 'ACTIVE', 'COMPLETED', 'CANCELLED'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"acquisitionContract\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.offer",
+    "label": "Create table \"offer\"",
+    "summary": "Creates table \"offer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"offer\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"offer\"",
+        "sql": "CREATE TABLE \"public\".\"offer\" (\n  \"acceptedAmount\" numeric,\n  \"amount\" numeric NOT NULL,\n  \"contactId\" int4,\n  \"counterAmount\" numeric,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"expirationDate\" timestamptz,\n  \"id\" SERIAL NOT NULL,\n  \"notes\" text,\n  \"offerDate\" timestamptz,\n  \"propertyId\" int4 NOT NULL,\n  \"status\" text DEFAULT 'DRAFT' NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"offer_status_check_0b2fa444\" CHECK (\"status\" IN ('DRAFT', 'PENDING', 'ACCEPTED', 'REJECTED', 'COUNTERED', 'WITHDRAWN'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"offer\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.acquisitionContract.acquisitionContract_offerId_key",
+    "label": "Add unique constraint on \"acquisitionContract\" (offerId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "acquisitionContract_offerId_key",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"acquisitionContract_offerId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_offerId_key",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"acquisitionContract_offerId_key\"",
+        "sql": "ALTER TABLE \"public\".\"acquisitionContract\" ADD CONSTRAINT \"acquisitionContract_offerId_key\" UNIQUE (\"offerId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"acquisitionContract_offerId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_offerId_key",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.offer.offer_id_propertyId_key",
+    "label": "Add unique constraint on \"offer\" (id, propertyId)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "offer_id_propertyId_key",
+        "table": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"offer_id_propertyId_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "offer_id_propertyId_key",
+          "public",
+          "\"public\".\"offer\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"offer_id_propertyId_key\"",
+        "sql": "ALTER TABLE \"public\".\"offer\" ADD CONSTRAINT \"offer_id_propertyId_key\" UNIQUE (\"id\", \"propertyId\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"offer_id_propertyId_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "offer_id_propertyId_key",
+          "public",
+          "\"public\".\"offer\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.acquisitionContract.acquisitionContract_contactId_idx_ec98db2a",
+    "label": "Create index \"acquisitionContract_contactId_idx_ec98db2a\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "acquisitionContract_contactId_idx_ec98db2a",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"acquisitionContract_contactId_idx_ec98db2a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_contactId_idx_ec98db2a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"acquisitionContract_contactId_idx_ec98db2a\"",
+        "sql": "CREATE INDEX \"acquisitionContract_contactId_idx_ec98db2a\" ON \"public\".\"acquisitionContract\" (\"contactId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"acquisitionContract_contactId_idx_ec98db2a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_contactId_idx_ec98db2a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.acquisitionContract.acquisitionContract_offerId_propertyId_idx_bf0d22d7",
+    "label": "Create index \"acquisitionContract_offerId_propertyId_idx_bf0d22d7\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "acquisitionContract_offerId_propertyId_idx_bf0d22d7",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"acquisitionContract_offerId_propertyId_idx_bf0d22d7\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_offerId_propertyId_idx_bf0d22d7\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"acquisitionContract_offerId_propertyId_idx_bf0d22d7\"",
+        "sql": "CREATE INDEX \"acquisitionContract_offerId_propertyId_idx_bf0d22d7\" ON \"public\".\"acquisitionContract\" (\"offerId\", \"propertyId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"acquisitionContract_offerId_propertyId_idx_bf0d22d7\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_offerId_propertyId_idx_bf0d22d7\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.acquisitionContract.acquisitionContract_propertyId_status_idx_3d7866fc",
+    "label": "Create index \"acquisitionContract_propertyId_status_idx_3d7866fc\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "acquisitionContract_propertyId_status_idx_3d7866fc",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"acquisitionContract_propertyId_status_idx_3d7866fc\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_propertyId_status_idx_3d7866fc\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"acquisitionContract_propertyId_status_idx_3d7866fc\"",
+        "sql": "CREATE INDEX \"acquisitionContract_propertyId_status_idx_3d7866fc\" ON \"public\".\"acquisitionContract\" (\"propertyId\", \"status\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"acquisitionContract_propertyId_status_idx_3d7866fc\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_propertyId_status_idx_3d7866fc\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.acquisitionContract.acquisitionContract_status_closingDeadline_idx_06092b9e",
+    "label": "Create index \"acquisitionContract_status_closingDeadline_idx_06092b9e\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "acquisitionContract_status_closingDeadline_idx_06092b9e",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"acquisitionContract_status_closingDeadline_idx_06092b9e\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_status_closingDeadline_idx_06092b9e\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"acquisitionContract_status_closingDeadline_idx_06092b9e\"",
+        "sql": "CREATE INDEX \"acquisitionContract_status_closingDeadline_idx_06092b9e\" ON \"public\".\"acquisitionContract\" (\"status\", \"closingDeadline\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"acquisitionContract_status_closingDeadline_idx_06092b9e\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_status_closingDeadline_idx_06092b9e\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.acquisitionContract.acquisitionContract_status_inspectionDeadline_idx_387ed97d",
+    "label": "Create index \"acquisitionContract_status_inspectionDeadline_idx_387ed97d\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "acquisitionContract_status_inspectionDeadline_idx_387ed97d",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"acquisitionContract_status_inspectionDeadline_idx_387ed97d\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_status_inspectionDeadline_idx_387ed97d\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"acquisitionContract_status_inspectionDeadline_idx_387ed97d\"",
+        "sql": "CREATE INDEX \"acquisitionContract_status_inspectionDeadline_idx_387ed97d\" ON \"public\".\"acquisitionContract\" (\"status\", \"inspectionDeadline\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"acquisitionContract_status_inspectionDeadline_idx_387ed97d\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisitionContract_status_inspectionDeadline_idx_387ed97d\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.acquisitionContract.acquisition_emd_due_295f0a30",
+    "label": "Create index \"acquisition_emd_due_295f0a30\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "acquisition_emd_due_295f0a30",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"acquisition_emd_due_295f0a30\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisition_emd_due_295f0a30\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"acquisition_emd_due_295f0a30\"",
+        "sql": "CREATE INDEX \"acquisition_emd_due_295f0a30\" ON \"public\".\"acquisitionContract\" (\"earnestMoneyStatus\", \"earnestMoneyDueDate\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"acquisition_emd_due_295f0a30\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"acquisition_emd_due_295f0a30\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.acquisitionContract.one_active_acquisition_per_property_7a856d9d",
+    "label": "Create index \"one_active_acquisition_per_property_7a856d9d\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "one_active_acquisition_per_property_7a856d9d",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"one_active_acquisition_per_property_7a856d9d\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"one_active_acquisition_per_property_7a856d9d\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"one_active_acquisition_per_property_7a856d9d\"",
+        "sql": "CREATE UNIQUE INDEX \"one_active_acquisition_per_property_7a856d9d\" ON \"public\".\"acquisitionContract\" (\"propertyId\") WHERE (\"status\" = 'ACTIVE')",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"one_active_acquisition_per_property_7a856d9d\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"one_active_acquisition_per_property_7a856d9d\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.offer.offer_contactId_idx_ec98db2a",
+    "label": "Create index \"offer_contactId_idx_ec98db2a\" on \"offer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "offer_contactId_idx_ec98db2a",
+        "table": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"offer_contactId_idx_ec98db2a\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_contactId_idx_ec98db2a\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"offer_contactId_idx_ec98db2a\"",
+        "sql": "CREATE INDEX \"offer_contactId_idx_ec98db2a\" ON \"public\".\"offer\" (\"contactId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"offer_contactId_idx_ec98db2a\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_contactId_idx_ec98db2a\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.offer.offer_propertyId_createdAt_idx_3aeff3c1",
+    "label": "Create index \"offer_propertyId_createdAt_idx_3aeff3c1\" on \"offer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "offer_propertyId_createdAt_idx_3aeff3c1",
+        "table": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"offer_propertyId_createdAt_idx_3aeff3c1\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_propertyId_createdAt_idx_3aeff3c1\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"offer_propertyId_createdAt_idx_3aeff3c1\"",
+        "sql": "CREATE INDEX \"offer_propertyId_createdAt_idx_3aeff3c1\" ON \"public\".\"offer\" (\"propertyId\", \"createdAt\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"offer_propertyId_createdAt_idx_3aeff3c1\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_propertyId_createdAt_idx_3aeff3c1\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.offer.offer_propertyId_idx_4bcae41c",
+    "label": "Create index \"offer_propertyId_idx_4bcae41c\" on \"offer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "offer_propertyId_idx_4bcae41c",
+        "table": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"offer_propertyId_idx_4bcae41c\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_propertyId_idx_4bcae41c\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"offer_propertyId_idx_4bcae41c\"",
+        "sql": "CREATE INDEX \"offer_propertyId_idx_4bcae41c\" ON \"public\".\"offer\" (\"propertyId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"offer_propertyId_idx_4bcae41c\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_propertyId_idx_4bcae41c\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.offer.offer_status_expirationDate_idx_12b3703f",
+    "label": "Create index \"offer_status_expirationDate_idx_12b3703f\" on \"offer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "offer_status_expirationDate_idx_12b3703f",
+        "table": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"offer_status_expirationDate_idx_12b3703f\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_status_expirationDate_idx_12b3703f\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"offer_status_expirationDate_idx_12b3703f\"",
+        "sql": "CREATE INDEX \"offer_status_expirationDate_idx_12b3703f\" ON \"public\".\"offer\" (\"status\", \"expirationDate\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"offer_status_expirationDate_idx_12b3703f\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"offer_status_expirationDate_idx_12b3703f\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.acquisitionContract.acquisitionContract_propertyId_fkey",
+    "label": "Add foreign key \"acquisitionContract_propertyId_fkey\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "acquisitionContract_propertyId_fkey",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"acquisitionContract_propertyId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_propertyId_fkey",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"acquisitionContract_propertyId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"acquisitionContract\"\nADD CONSTRAINT \"acquisitionContract_propertyId_fkey\"\nFOREIGN KEY (\"propertyId\")\nREFERENCES \"public\".\"property\" (\"id\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"acquisitionContract_propertyId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_propertyId_fkey",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.acquisitionContract.acquisitionContract_offerId_propertyId_fkey",
+    "label": "Add foreign key \"acquisitionContract_offerId_propertyId_fkey\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "acquisitionContract_offerId_propertyId_fkey",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"acquisitionContract_offerId_propertyId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_offerId_propertyId_fkey",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"acquisitionContract_offerId_propertyId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"acquisitionContract\"\nADD CONSTRAINT \"acquisitionContract_offerId_propertyId_fkey\"\nFOREIGN KEY (\"offerId\", \"propertyId\")\nREFERENCES \"public\".\"offer\" (\"id\", \"propertyId\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"acquisitionContract_offerId_propertyId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_offerId_propertyId_fkey",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.acquisitionContract.acquisitionContract_contactId_fkey",
+    "label": "Add foreign key \"acquisitionContract_contactId_fkey\" on \"acquisitionContract\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "acquisitionContract_contactId_fkey",
+        "table": "acquisitionContract"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"acquisitionContract_contactId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_contactId_fkey",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"acquisitionContract_contactId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"acquisitionContract\"\nADD CONSTRAINT \"acquisitionContract_contactId_fkey\"\nFOREIGN KEY (\"contactId\")\nREFERENCES \"public\".\"contact\" (\"id\")\nON DELETE SET NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"acquisitionContract_contactId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "acquisitionContract_contactId_fkey",
+          "public",
+          "\"public\".\"acquisitionContract\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.offer.offer_propertyId_fkey",
+    "label": "Add foreign key \"offer_propertyId_fkey\" on \"offer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "offer_propertyId_fkey",
+        "table": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"offer_propertyId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "offer_propertyId_fkey",
+          "public",
+          "\"public\".\"offer\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"offer_propertyId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"offer\"\nADD CONSTRAINT \"offer_propertyId_fkey\"\nFOREIGN KEY (\"propertyId\")\nREFERENCES \"public\".\"property\" (\"id\")\nON DELETE RESTRICT"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"offer_propertyId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "offer_propertyId_fkey",
+          "public",
+          "\"public\".\"offer\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.offer.offer_contactId_fkey",
+    "label": "Add foreign key \"offer_contactId_fkey\" on \"offer\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "offer_contactId_fkey",
+        "table": "offer"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"offer_contactId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "offer_contactId_fkey",
+          "public",
+          "\"public\".\"offer\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"offer_contactId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"offer\"\nADD CONSTRAINT \"offer_contactId_fkey\"\nFOREIGN KEY (\"contactId\")\nREFERENCES \"public\".\"contact\" (\"id\")\nON DELETE SET NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"offer_contactId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "offer_contactId_fkey",
+          "public",
+          "\"public\".\"offer\""
+        ]
+      }
+    ]
+  }
+]

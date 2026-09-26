@@ -103,3 +103,76 @@ model Activity {
   contactId  Int?
   createdAt  TimestamptzString @default(now())
 }
+
+enum OfferStatus {
+  DRAFT
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTERED
+  WITHDRAWN
+}
+
+enum AcquisitionStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum EarnestMoneyStatus {
+  NOT_DUE
+  DUE
+  PAID
+  WAIVED
+}
+
+model Offer {
+  id Int @id @default(autoincrement())
+  propertyId Int
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  contactId Int?
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  amount Decimal
+  offerDate TimestamptzString?
+  status OfferStatus @default(DRAFT)
+  counterAmount Decimal?
+  acceptedAmount Decimal?
+  expirationDate TimestamptzString?
+  notes String?
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  @@unique([id, propertyId])
+  @@index([propertyId, createdAt])
+  @@index([contactId])
+  @@index([status, expirationDate])
+}
+
+model AcquisitionContract {
+  id Int @id @default(autoincrement())
+  propertyId Int
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  offerId Int @unique
+  offer Offer @relation(fields: [offerId, propertyId], references: [id, propertyId], onDelete: Restrict)
+  contactId Int?
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  purchasePrice Decimal
+  contractDate TimestamptzString?
+  inspectionDeadline TimestamptzString?
+  closingDeadline TimestamptzString?
+  earnestMoneyAmount Decimal?
+  earnestMoneyDueDate TimestamptzString?
+  earnestMoneyStatus EarnestMoneyStatus @default(NOT_DUE)
+  status AcquisitionStatus @default(DRAFT)
+  notes String?
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  @@index([propertyId, status])
+  @@index([contactId])
+  @@index([status, closingDeadline])
+  @@index([status, inspectionDeadline])
+  @@index([earnestMoneyStatus, earnestMoneyDueDate], name: "acquisition_emd_due")
+  @@index([propertyId], where: "\"status\" = 'ACTIVE'", unique: true, name: "one_active_acquisition_per_property")
+}
