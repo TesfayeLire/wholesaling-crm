@@ -1,3 +1,5 @@
+import { AcquisitionSummary } from "@/app/components/acquisition-summary";
+import { getAcquisitions } from "@/src/acquisition-data";
 import { CommandCenter } from "@/app/components/command-center";
 import { getCommandCenter } from "@/src/command-center-data";
 import { connection } from "next/server";
@@ -11,11 +13,13 @@ const navigation = [
   { label: "Pipeline", href: "/pipeline" },
   { label: "Tasks", href: "/tasks" },
   { label: "Follow-Ups", href: "/follow-ups" },
+  { label: "Acquisitions", href: "/acquisitions" },
 ];
 
 export default async function Home() {
   await connection();
   const center = await getCommandCenter();
+  const acquisitions = await getAcquisitions();
   const properties = center.properties;
   const tasks = await db.orm.public.Task.all();
 
@@ -133,6 +137,7 @@ export default async function Home() {
           </section>
 
           <section className="mt-8"><CommandCenter data={center} compact/></section>
+          <div className="mt-6"><AcquisitionSummary data={acquisitions} compact/></div>
           <section className="mt-8 grid gap-6 xl:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
