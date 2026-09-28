@@ -2,25 +2,22 @@
 import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
 
 const PendingContext = createContext(false);
-export function SubmitButton({ children = "Save" }: { children?: ReactNode }) {
+export function SubmitButton({ children = "Save", destructive = false }: { children?: ReactNode; destructive?: boolean }) {
   const pending = useContext(PendingContext);
-  return <button disabled={pending} type="submit" className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Saving…" : children}</button>;
+  return <button disabled={pending} type="submit" className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${destructive ? "bg-red-700 hover:bg-red-800" : "bg-slate-950"}`}>{pending ? "Saving…" : children}</button>;
 }
 export function ActionForm({ action, children, className = "space-y-5", confirmMessage }: { action: (form: FormData) => Promise<void | { error?: string; success?: string }>; children: ReactNode; className?: string; confirmMessage?: string }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [pending, startTransition] = useTransition();
   return <PendingContext.Provider value={pending}><form className={className} aria-busy={pending} onSubmit={event => {
-    // Keep entered values on an unsuccessful save instead of resetting the form.
     event.preventDefault();
     if (pending || (confirmMessage && !window.confirm(confirmMessage))) return;
     const form = new FormData(event.currentTarget);
-    setError("");
-    setSuccess("");
+    setError(""); setSuccess("");
     startTransition(async () => {
       try { const result = await action(form); if (result?.error) setError(result.error); else setSuccess(result?.success ?? ""); }
       catch (error) {
-        // Next uses a thrown redirect internally; let its router handle it.
         if (error && typeof error === "object" && "digest" in error && String(error.digest).startsWith("NEXT_REDIRECT")) throw error;
         setError("Could not save this change. Check the fields and try again. The record may have changed or been deleted.");
       }
