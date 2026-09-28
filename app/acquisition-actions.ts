@@ -36,7 +36,7 @@ export async function deleteOffer(form: FormData) {
     if (offer.status !== "DRAFT") throw new UserError("Only Draft offers can be deleted. Submitted or finalized offers are preserved as negotiation history.");
     if (await tx.orm.public.AcquisitionContract.where({ offerId: id }).first()) throw new UserError("This offer is linked to an acquisition contract and cannot be deleted.");
     await history(tx, propertyId, offer.contactId, "OFFER_DELETED", `Draft offer #${id} deleted (${formatMoney(offer.amount)}).`);
-    if (!await tx.orm.public.Offer.where({ id, updatedAt: expected }).delete()) throw stale();
+    await tx.orm.public.Offer.where({ id, updatedAt: expected }).delete();
   });
 }
 export async function createContractFromOffer(form: FormData) {
