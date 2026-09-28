@@ -4,8 +4,7 @@ export const temperatures = { HOT: "Hot", WARM: "Warm", COLD: "Cold" } as const;
 export const contactTypes = { CALL: "Call", TEXT: "Text", EMAIL: "Email", VOICEMAIL: "Voicemail", NO_ANSWER: "No Answer", CONVERSATION: "Conversation", OTHER: "Other" } as const;
 export const attentionRules = { hotContactDays: 7, recentContactDays: 14 } as const;
 export function temperature(value: string) {
-  if (value === "") return null;
-  if (!Object.hasOwn(temperatures, value)) throw new Error("Choose Hot, Warm, Cold, or Unclassified.");
+  if (!Object.hasOwn(temperatures, value)) throw new Error("Choose Hot, Warm, or Cold.");
   return value as keyof typeof temperatures;
 }
 export function contactType(value: string) {
