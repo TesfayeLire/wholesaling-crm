@@ -48,12 +48,13 @@ export async function updateContact(form: FormData) {
   refresh(); redirect(`/contacts/${id}`);
 }
 export async function deleteProperty(form: FormData) {
-  try { confirmed(form); } catch (e) { return { error: (e as Error).message }; }
+  confirmed(form);
   const id = recordId(form.get("id"));
-  const blocked = await db.transaction(async tx => Boolean(await tx.orm.public.Offer.where({ propertyId: id }).first() || await tx.orm.public.AcquisitionContract.where({ propertyId: id }).first()));
-  if (blocked) return { error: "This property has offer or acquisition-contract history and cannot be deleted. Preserve the history and use an inactive pipeline stage instead." };
   await db.transaction(async tx => {
     const row = await tx.orm.public.Property.where({ id }).first(); if (!row) throw new Error("Property no longer exists.");
+    const offerModel = tx.orm.public.Offer;
+    const contractModel = tx.orm.public.AcquisitionContract;
+    if (offerModel && await offerModel.where({ propertyId: id }).first() || contractModel && await contractModel.where({ propertyId: id }).first()) throw new Error("This property has offer or acquisition-contract history and cannot be deleted. Preserve the history and use an inactive pipeline stage instead.");
     await tx.orm.public.Task.where({ propertyId: id }).update({ propertyId: null }); await tx.orm.public.Activity.where({ propertyId: id }).update({ propertyId: null }); await tx.orm.public.PropertyContact.where({ propertyId: id }).delete();
     await activity(tx, "PROPERTY_DELETED", `Property deleted: ${row.address}. Related contacts, tasks, and history were preserved.`);
     await tx.orm.public.Property.where({ id }).delete();
@@ -61,7 +62,7 @@ export async function deleteProperty(form: FormData) {
   refresh(); redirect("/properties");
 }
 export async function deleteContact(form: FormData) {
-  try { confirmed(form); } catch (e) { return { error: (e as Error).message }; }
+  confirmed(form);
   const id = recordId(form.get("id"));
   await db.transaction(async tx => {
     const row = await tx.orm.public.Contact.where({ id }).first(); if (!row) throw new Error("Contact no longer exists.");
@@ -90,7 +91,7 @@ export async function setTaskStatus(form: FormData) {
   refresh();
 }
 export async function deleteTask(form: FormData) {
-  try { confirmed(form); } catch (e) { return { error: (e as Error).message }; }
+  confirmed(form);
   const id = recordId(form.get("id"));
   await db.transaction(async tx => { const row = await tx.orm.public.Task.where({ id }).first(); if (!row) throw new Error("Task no longer exists."); await activity(tx, "TASK_DELETED", `Task deleted: "${row.title}".`, row.propertyId, row.contactId); await tx.orm.public.Task.where({ id }).delete(); });
   refresh(); redirect("/tasks");
