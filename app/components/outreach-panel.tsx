@@ -17,7 +17,7 @@ export function OutreachPanel({ property, contact, contacts = [], activities, ta
       {property && <>
         <ActionForm key={version + "temperature"} action={changeTemperature} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="id" value={property.id}/><input type="hidden" name="updatedAt" value={version}/>
-          <label className="block text-sm font-medium">Lead temperature<select name="temperature" defaultValue={property.temperature ?? ""} required className={inputClass}><option value="" disabled>Unclassified</option>{Object.entries(temperatures).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><SubmitButton>Save temperature</SubmitButton>
+          <label className="block text-sm font-medium">Lead temperature<select name="temperature" defaultValue={property.temperature ?? ""} className={inputClass}><option value="">Unclassified</option>{Object.entries(temperatures).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><SubmitButton>Save temperature</SubmitButton>
         </ActionForm>
         <p>Next follow-up: {property.nextAction ?? "No next action"} · {displayDate(property.nextActionDate)}</p>
         {(property.nextAction || property.nextActionDate) && <ActionForm action={completePropertyFollowUp}>

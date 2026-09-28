@@ -18,15 +18,17 @@ function expected(form: FormData) {
   return value;
 }
 export async function changeTemperature(form: FormData) {
-  let id: number, value: ReturnType<typeof temperature>, version: string;
-  try { id = recordId(form.get("id")); value = temperature(text(form, "temperature")); version = expected(form); }
+  let id: number, value: keyof typeof temperatures | null, version: string;
+  try { id = recordId(form.get("id")); const raw = text(form, "temperature"); value = raw === "" ? null : temperature(raw); version = expected(form); }
   catch (e) { return { error: (e as Error).message }; }
   return perform(async tx => {
     const row = await tx.orm.public.Property.where({ id }).first();
     if (!row || row.updatedAt !== version) throw stale();
     if (row.temperature === value) return;
     if (!await tx.orm.public.Property.where({ id, updatedAt: version }).update({ temperature: value })) throw stale();
-    await tx.orm.public.Activity.create({ propertyId: id, contactId: null, type: "TEMPERATURE_CHANGED", description: `Lead temperature changed from ${row.temperature ? temperatures[row.temperature] : "Unclassified"} to ${temperatures[value]}.` });
+    const before = row.temperature ? temperatures[row.temperature as keyof typeof temperatures] : "Unclassified";
+    const after = value ? temperatures[value] : "Unclassified";
+    await tx.orm.public.Activity.create({ propertyId: id, contactId: null, type: "TEMPERATURE_CHANGED", description: `Lead temperature changed from ${before} to ${after}.` });
   });
 }
 export async function completePropertyFollowUp(form: FormData) {
@@ -61,7 +63,6 @@ export async function logContact(form: FormData) {
     const contact = contactId === null ? null : await tx.orm.public.Contact.where({ id: contactId }).first();
     if ((propertyId !== null && !property) || (contactId !== null && !contact)) throw new InputError("The related record no longer exists.");
     if (propertyId !== null && contactId !== null && !await tx.orm.public.PropertyContact.where({ propertyId, contactId }).first()) throw new InputError("Link this contact to the property before logging them together.");
-    // Serialize submissions on the record used by the form, rejecting repeated/stale saves.
     if (property) {
       if (property.updatedAt !== version || !await tx.orm.public.Property.where({ id: property.id, updatedAt: version }).update({ nextAction: property.nextAction })) throw stale();
     } else if (contact) {
@@ -80,7 +81,6 @@ export async function logContact(form: FormData) {
         await tx.orm.public.Property.where({ id: property.id }).update({ nextAction, nextActionDate });
         await tx.orm.public.Activity.create({ type: mode === "complete" ? "FOLLOW_UP_COMPLETED" : "FOLLOW_UP_UPDATED", description: mode === "complete" ? `Completed property follow-up: ${property.nextAction || "Follow-up"}.` : `Follow-up: ${title} — ${calendarDate(dueDate)}.`, propertyId, contactId });
       }
-      // A selected task is explicitly marked handled alongside the property next action.
       if (task) {
         if (!await tx.orm.public.Task.where({ id: task.id, updatedAt: taskVersion }).update({ status: "COMPLETED" })) throw stale();
         await tx.orm.public.Activity.create({ type: "TASK_STATUS_CHANGED", description: `Task "${task.title}" completed.`, propertyId: task.propertyId, contactId: task.contactId });

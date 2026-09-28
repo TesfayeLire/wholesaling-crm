@@ -196,7 +196,7 @@ test("Phase 5 date storage and Central DST boundaries do not shift selected date
 });
 test("property deletion with offer history rolls back cleanup; contact deletion keeps acquisition history", async () => {
   const f = fixture(); await draftContract(f); const before = JSON.stringify(f.state);
-  await assert.rejects(f.old.deleteProperty(form({ id: 1, confirm: "DELETE" })), /FK restrict/); assert.equal(JSON.stringify(f.state), before);
+  await assert.rejects(f.old.deleteProperty(form({ id: 1, confirm: "DELETE" })), /offer or acquisition-contract history/); assert.equal(JSON.stringify(f.state), before);
   await assert.rejects(f.old.deleteContact(form({ id: 2, confirm: "DELETE" })), /REDIRECT/); assert.equal(f.state.Offer[0].contactId, null); assert.equal(f.state.AcquisitionContract[0].contactId, null); assert.equal(f.state.Offer.length, 1); assert.equal(f.state.AcquisitionContract.length, 1);
 });
 test("migration is additive with numeric money, FKs, unique source offer and one Active contract", () => {

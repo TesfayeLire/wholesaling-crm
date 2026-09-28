@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createContractFromOffer, createOffer, updateAcquisitionContract, updateOffer } from "@/app/acquisition-actions";
+import { createContractFromOffer, createOffer, deleteOffer, updateAcquisitionContract, updateOffer } from "@/app/acquisition-actions";
 import { acquisitionSummary, contractStatuses, emdStatuses, offerStatuses, statusOptions, terminalContract, terminalOffer } from "@/src/acquisitions";
 import type { Offer, AcquisitionContract } from "@/src/acquisition-data";
 import { formatMoney } from "@/src/deal-analysis";
@@ -9,15 +9,9 @@ import { Field, inputClass, Section } from "./record-ui";
 import { DeadlineList } from "./acquisition-summary";
 
 type Seller = { id: number; firstName: string; lastName: string | null };
-function Select({ name, label, values, value }: { name: string; label: string; values: Record<string, string>; value: string }) {
-  return <label className="block text-sm font-medium">{label}<select className={inputClass} name={name} defaultValue={value}>{Object.entries(values).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>;
-}
-function SellerSelect({ contacts, value }: { contacts: Seller[]; value?: number | null }) {
-  return <label className="block text-sm font-medium">Seller (optional linked contact)<select className={inputClass} name="contactId" defaultValue={value ?? ""}><option value="">No seller selected</option>{contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}</select></label>;
-}
-function Identity({ id, propertyId, updatedAt }: { id?: number; propertyId: number; updatedAt: string }) {
-  return <><input type="hidden" name="propertyId" value={propertyId}/><input type="hidden" name="updatedAt" value={updatedAt}/>{id !== undefined && <input type="hidden" name="id" value={id}/>}</>;
-}
+function Select({ name, label, values, value }: { name: string; label: string; values: Record<string, string>; value: string }) { return <label className="block text-sm font-medium">{label}<select className={inputClass} name={name} defaultValue={value}>{Object.entries(values).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>; }
+function SellerSelect({ contacts, value }: { contacts: Seller[]; value?: number | null }) { return <label className="block text-sm font-medium">Seller (optional linked contact)<select className={inputClass} name="contactId" defaultValue={value ?? ""}><option value="">No seller selected</option>{contacts.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}</select></label>; }
+function Identity({ id, propertyId, updatedAt }: { id?: number; propertyId: number; updatedAt: string }) { return <><input type="hidden" name="propertyId" value={propertyId}/><input type="hidden" name="updatedAt" value={updatedAt}/>{id !== undefined && <input type="hidden" name="id" value={id}/>}</>; }
 function PipelineChoice({ label }: { label: string }) { return <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="advancePipeline" value="yes"/>{label}</label>; }
 export function AcquisitionPanel({ property, contacts, offers, contracts }: { property: { id: number; updatedAt: string }; contacts: Seller[]; offers: Offer[]; contracts: AcquisitionContract[] }) {
   const summary = acquisitionSummary(offers, contracts);
@@ -41,6 +35,7 @@ export function AcquisitionPanel({ property, contacts, offers, contracts }: { pr
           <div className="grid gap-4 sm:grid-cols-2"><Select name="status" label="Status" values={statusOptions("offer", offer.status)} value={offer.status}/><Field name="counterAmount" label="Seller counter amount ($, optional)" value={offer.counterAmount}/><Field name="acceptedAmount" label="Accepted amount ($, required when accepting)" value={offer.acceptedAmount}/><Field name="offerDate" label="Offer date" type="date" value={offer.offerDate?.slice(0, 10)}/><Field name="expirationDate" label="Expiration" type="date" value={offer.expirationDate?.slice(0, 10)}/></div>
           <p className="text-xs text-slate-500">For acceptance, explicitly enter the original offer or current counter. Record a new offer for a different price. Finalized offers cannot be edited.</p><Field name="notes" label="Notes / negotiation context" type="textarea" value={offer.notes}/><PipelineChoice label="Also update pipeline: Countered → Negotiating; Pending/Accepted → Offer Made"/><SubmitButton>Save offer update</SubmitButton>
         </ActionForm></details>}
+        {offer.status === "DRAFT" && !contracts.some(c => c.offerId === offer.id) && <ActionForm action={deleteOffer} confirmMessage={`Permanently delete Draft offer #${offer.id}?`} className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-3"><Identity id={offer.id} propertyId={property.id} updatedAt={offer.updatedAt}/><label className="flex items-center gap-2 text-sm"><input type="checkbox" required name="confirm" value="DELETE"/>I confirm I want to permanently delete this Draft offer.</label><SubmitButton destructive>Delete offer</SubmitButton></ActionForm>}
         {offer.status === "ACCEPTED" && !contracts.some(c => c.offerId === offer.id) && <ActionForm action={createContractFromOffer}><Identity propertyId={property.id} updatedAt={offer.updatedAt}/><input type="hidden" name="offerId" value={offer.id}/><SubmitButton>Create contract from accepted offer</SubmitButton><p className="text-xs text-slate-500">Creates one Draft contract at the accepted price. Dates and EMD remain blank.</p></ActionForm>}
         {contracts.filter(c => c.offerId === offer.id).map(c => <a className="block text-sm underline" key={c.id} href={`#contract-${c.id}`}>View acquisition contract #{c.id}</a>)}
       </article>)}
