@@ -4,7 +4,8 @@ export const temperatures = { HOT: "Hot", WARM: "Warm", COLD: "Cold" } as const;
 export const contactTypes = { CALL: "Call", TEXT: "Text", EMAIL: "Email", VOICEMAIL: "Voicemail", NO_ANSWER: "No Answer", CONVERSATION: "Conversation", OTHER: "Other" } as const;
 export const attentionRules = { hotContactDays: 7, recentContactDays: 14 } as const;
 export function temperature(value: string) {
-  if (!Object.hasOwn(temperatures, value)) throw new Error("Choose Hot, Warm, or Cold.");
+  if (value === "") return null;
+  if (!Object.hasOwn(temperatures, value)) throw new Error("Choose Hot, Warm, Cold, or Unclassified.");
   return value as keyof typeof temperatures;
 }
 export function contactType(value: string) {
@@ -13,7 +14,6 @@ export function contactType(value: string) {
 }
 export function contactTime(value: string, now = new Date()) {
   if (!value) return now.toISOString();
-  // Explicit UTC input; reject rollover dates and future contact events.
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) throw new Error("Enter a valid contact time in UTC.");
   const date = new Date(value + ":00.000Z");
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 16) !== value || date > now) throw new Error("Contact time must be valid and cannot be in the future.");
@@ -59,8 +59,6 @@ export function commandCenter(properties: Lead[], contacts: Person[], tasks: Fol
   const queue: QueueRow[] = [];
   for (const property of properties.filter(p => isActive(p.status))) {
     if (!property.nextActionDate) continue;
-    // Scheduling history owns the optional contact association. A later Phase 3
-    // follow-up edit records contactId=null, so an old association is not reused.
     const scheduled = (propertyEvents.get(property.id) ?? []).filter(a => a.type === "FOLLOW_UP_UPDATED").sort((a, b) => b.id - a.id)[0];
     const linkedId = links.find(l => l.propertyId === property.id)?.contactId;
     const contact = contactMap.get(scheduled?.contactId ?? linkedId ?? -1) ?? null;
