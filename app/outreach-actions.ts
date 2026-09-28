@@ -18,8 +18,8 @@ function expected(form: FormData) {
   return value;
 }
 export async function changeTemperature(form: FormData) {
-  let id: number, value: ReturnType<typeof temperature>, version: string;
-  try { id = recordId(form.get("id")); value = temperature(text(form, "temperature")); version = expected(form); }
+  let id: number, value: keyof typeof temperatures | null, version: string;
+  try { id = recordId(form.get("id")); const raw = text(form, "temperature"); value = raw === "" ? null : temperature(raw); version = expected(form); }
   catch (e) { return { error: (e as Error).message }; }
   return perform(async tx => {
     const row = await tx.orm.public.Property.where({ id }).first();
