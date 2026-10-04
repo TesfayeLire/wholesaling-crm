@@ -46,6 +46,6 @@ export default async function PropertyDetail({ params }: { params: Promise<{ id:
     </Section>
     <Section title="Tasks"><Link className={linkClass} href="/tasks/new">Create task</Link><TaskList tasks={tasks} properties={[property]} contacts={contacts}/></Section>
     <ActivityHistory activities={activities}/>
-    {offers.length || contracts.length ? <Section title="Record retention"><p className="text-sm text-slate-600">This property has acquisition history and cannot be deleted. Offers and contracts are retained; use an inactive pipeline stage when appropriate.</p></Section> : <DeleteRecord id={property.id} action={deleteProperty} name={property.address} explanation="Linked contacts, tasks and activity history will be preserved. This property's links will be removed."/>}
+    {offers.length || contracts.length ? <Section title="Record retention"><p className="text-sm text-slate-600">This property has acquisition history and cannot be deleted. Offers and contracts are retained; use an inactive pipeline stage when appropriate.</p></Section> : <DeleteRecord id={property.id} updatedAt={property.updatedAt} action={deleteProperty} name={property.address} explanation="Linked contacts, tasks and activity history will be preserved. This property's links will be removed."/>}
   </RecordPage>;
 }
