@@ -26,12 +26,12 @@ export async function updateProperty(form: FormData) {
   const id = recordId(form.get("id")); const data = propertyInput(form);
   await db.transaction(async tx => {
     const before = await tx.orm.public.Property.where({ id }).first(); if (!before) throw new Error("Property no longer exists.");
-    const expected = text(form, "updatedAt"); if (expected && expected !== before.updatedAt) throw new Error("This property changed. Reload before saving.");
+    const expected = text(form, "updatedAt"); if (!expected || expected !== before.updatedAt) throw new Error("This property changed. Reload before saving.");
     const sameDay = (before.nextActionDate ?? "").slice(0, 10) === (data.nextActionDate ?? "").slice(0, 10); if (sameDay) data.nextActionDate = before.nextActionDate;
     const decimalKeys = ["askingPrice", "estimatedValue", "repairEstimate", "offerAmount"];
     const comparable = (value: unknown) => typeof value === "string" && /^\d+(\.\d+)?$/.test(value) ? value.replace(/^0+(?=\d)/, "").replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") : value;
     if (!Object.entries(data).some(([key, value]) => decimalKeys.includes(key) ? comparable(before[key as keyof typeof data]) !== comparable(value) : before[key as keyof typeof data] !== value)) return;
-    const changed = await tx.orm.public.Property.where(expected ? { id, updatedAt: expected } : { id }).update(data); if (expected && !changed) throw new Error("This property changed while saving. Reload and try again.");
+    const changed = await tx.orm.public.Property.where({ id, updatedAt: expected }).update(data); if (!changed) throw new Error("This property changed while saving. Reload and try again.");
     if (!sameDay || before.nextAction !== data.nextAction) await activity(tx, "FOLLOW_UP_UPDATED", "Property follow-up updated.", id);
     await activity(tx, "PROPERTY_UPDATED", "Property details updated.", id); if (before.status !== data.status) await activity(tx, "PIPELINE_CHANGED", `Pipeline changed from ${before.status} to ${data.status}.`, id);
   });
@@ -49,26 +49,26 @@ export async function updateContact(form: FormData) {
 }
 export async function deleteProperty(form: FormData) {
   confirmed(form);
-  const id = recordId(form.get("id"));
+  const id = recordId(form.get("id")); const expected = text(form, "updatedAt"); if (!expected) throw new Error("Reload the property before deleting.");
   await db.transaction(async tx => {
-    const row = await tx.orm.public.Property.where({ id }).first(); if (!row) throw new Error("Property no longer exists.");
+    const row = await tx.orm.public.Property.where({ id }).first(); if (!row) throw new Error("Property no longer exists."); if (row.updatedAt !== expected) throw new Error("This property changed. Reload before deleting.");
     const offerModel = tx.orm.public.Offer;
     const contractModel = tx.orm.public.AcquisitionContract;
     if (offerModel && await offerModel.where({ propertyId: id }).first() || contractModel && await contractModel.where({ propertyId: id }).first()) throw new Error("This property has offer or acquisition-contract history and cannot be deleted. Preserve the history and use an inactive pipeline stage instead.");
     await tx.orm.public.Task.where({ propertyId: id }).update({ propertyId: null }); await tx.orm.public.Activity.where({ propertyId: id }).update({ propertyId: null }); await tx.orm.public.PropertyContact.where({ propertyId: id }).delete();
     await activity(tx, "PROPERTY_DELETED", `Property deleted: ${row.address}. Related contacts, tasks, and history were preserved.`);
-    await tx.orm.public.Property.where({ id }).delete();
+    await tx.orm.public.Property.where({ id, updatedAt: expected }).delete();
   });
   refresh(); redirect("/properties");
 }
 export async function deleteContact(form: FormData) {
   confirmed(form);
-  const id = recordId(form.get("id"));
+  const id = recordId(form.get("id")); const expected = text(form, "updatedAt"); if (!expected) throw new Error("Reload the contact before deleting.");
   await db.transaction(async tx => {
-    const row = await tx.orm.public.Contact.where({ id }).first(); if (!row) throw new Error("Contact no longer exists.");
+    const row = await tx.orm.public.Contact.where({ id }).first(); if (!row) throw new Error("Contact no longer exists."); if (row.updatedAt !== expected) throw new Error("This contact changed. Reload before deleting.");
     await tx.orm.public.Task.where({ contactId: id }).update({ contactId: null }); await tx.orm.public.Activity.where({ contactId: id }).update({ contactId: null }); await tx.orm.public.PropertyContact.where({ contactId: id }).delete();
     await activity(tx, "CONTACT_DELETED", `Contact deleted: ${row.firstName}${row.lastName ? " " + row.lastName : ""}. Related CRM and deal history was preserved.`);
-    await tx.orm.public.Contact.where({ id }).delete();
+    await tx.orm.public.Contact.where({ id, updatedAt: expected }).delete();
   });
   refresh(); redirect("/contacts");
 }
@@ -78,10 +78,10 @@ export async function linkContact(form: FormData) {
   refresh(); redirect(text(form, "from") === "contact" ? `/contacts/${contactId}` : `/properties/${propertyId}`);
 }
 export async function updateTask(form: FormData) {
-  const id = recordId(form.get("id")); const data = taskInput(form);
+  const id = recordId(form.get("id")); const data = taskInput(form); const expected = text(form, "updatedAt"); if (!expected) throw new Error("Reload the task before saving.");
   await db.transaction(async tx => {
-    const before = await tx.orm.public.Task.where({ id }).first(); if (!before) throw new Error("Task no longer exists."); const expected = text(form, "updatedAt"); if (expected && expected !== before.updatedAt) throw new Error("This task changed. Reload before saving."); await validateRelations(tx, data.propertyId, data.contactId); if (Object.entries(data).every(([key, value]) => before[key as keyof typeof data] === value)) return;
-    const changed = await tx.orm.public.Task.where(expected ? { id, updatedAt: expected } : { id }).update(data); if (expected && !changed) throw new Error("This task changed while saving. Reload and try again."); if (before.dueDate?.slice(0, 10) !== data.dueDate?.slice(0, 10) || before.title !== data.title) await activity(tx, "TASK_UPDATED", `Task "${data.title}" updated${data.dueDate ? " — due " + data.dueDate.slice(0, 10) : " — no due date"}.`, data.propertyId, data.contactId); if (before.status !== data.status) await activity(tx, "TASK_STATUS_CHANGED", `Task "${data.title}" ${data.status === "COMPLETED" ? "completed" : "reopened"}.`, data.propertyId, data.contactId);
+    const before = await tx.orm.public.Task.where({ id }).first(); if (!before) throw new Error("Task no longer exists."); if (expected !== before.updatedAt) throw new Error("This task changed. Reload before saving."); await validateRelations(tx, data.propertyId, data.contactId); if (Object.entries(data).every(([key, value]) => before[key as keyof typeof data] === value)) return;
+    const changed = await tx.orm.public.Task.where({ id, updatedAt: expected }).update(data); if (!changed) throw new Error("This task changed while saving. Reload and try again."); if (before.dueDate?.slice(0, 10) !== data.dueDate?.slice(0, 10) || before.title !== data.title) await activity(tx, "TASK_UPDATED", `Task "${data.title}" updated${data.dueDate ? " — due " + data.dueDate.slice(0, 10) : " — no due date"}.`, data.propertyId, data.contactId); if (before.status !== data.status) await activity(tx, "TASK_STATUS_CHANGED", `Task "${data.title}" ${data.status === "COMPLETED" ? "completed" : "reopened"}.`, data.propertyId, data.contactId);
   });
   refresh(); redirect("/tasks");
 }
@@ -92,7 +92,7 @@ export async function setTaskStatus(form: FormData) {
 }
 export async function deleteTask(form: FormData) {
   confirmed(form);
-  const id = recordId(form.get("id"));
-  await db.transaction(async tx => { const row = await tx.orm.public.Task.where({ id }).first(); if (!row) throw new Error("Task no longer exists."); await activity(tx, "TASK_DELETED", `Task deleted: "${row.title}".`, row.propertyId, row.contactId); await tx.orm.public.Task.where({ id }).delete(); });
+  const id = recordId(form.get("id")); const expected = text(form, "updatedAt"); if (!expected) throw new Error("Reload the task before deleting.");
+  await db.transaction(async tx => { const row = await tx.orm.public.Task.where({ id }).first(); if (!row) throw new Error("Task no longer exists."); if (row.updatedAt !== expected) throw new Error("This task changed. Reload before deleting."); await activity(tx, "TASK_DELETED", `Task deleted: "${row.title}".`, row.propertyId, row.contactId); await tx.orm.public.Task.where({ id, updatedAt: expected }).delete(); });
   refresh(); redirect("/tasks");
 }
