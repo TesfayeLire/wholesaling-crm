@@ -30,5 +30,5 @@ export function DeleteRecord({ id, action, name, explanation, label = "Delete re
 }
 export function ActivityHistory({ activities }: { activities: { id: number; createdAt: string; description: string }[] }) {
   const ordered = [...activities].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id);
-  return <Section title="Activity history">{ordered.length ? <ol className="space-y-3">{ordered.map(item => <li key={item.id} className="border-b border-slate-100 pb-3"><p>{item.description}</p><time className="text-xs text-slate-500" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("en-US", { timeZone: "UTC" })} UTC</time></li>)}</ol> : <p className="text-sm text-slate-500">No activity recorded yet.</p>}</Section>;
+  return <Section title="Activity history">{ordered.length ? <ol className="space-y-3">{ordered.map(item => <li key={item.id} className="border-b border-slate-100 pb-3"><p>{item.description}</p><time className="text-xs text-slate-500" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("en-US", { timeZone: "America/Chicago" })} Central</time></li>)}</ol> : <p className="text-sm text-slate-500">No activity recorded yet.</p>}</Section>;
 }

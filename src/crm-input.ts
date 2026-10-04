@@ -39,7 +39,7 @@ export function optionalDate(form: FormData, name: string) {
 function money(form: FormData, name: string) {
   const value = text(form, name);
   if (!value) return null;
-  if (!/^\d+(\.\d+)?$/.test(value)) throw new Error(`${name} must be a non-negative decimal.`);
+  if (!/^\d{1,24}(\.\d{1,2})?$/.test(value)) throw new Error(`${name} must be a non-negative dollar amount with at most two decimal places.`);
   return value; // Decimal values stay strings; do not lose precision through Number.
 }
 export function propertyInput(form: FormData) {

@@ -43,8 +43,8 @@ export async function updatePropertyStatus(form: FormData) {
   refresh(); redirect("/pipeline");
 }
 export async function updateContact(form: FormData) {
-  const id = recordId(form.get("id")); const data = contactInput(form);
-  await db.transaction(async tx => { const before = await tx.orm.public.Contact.where({ id }).first(); if (!before) throw new Error("Contact no longer exists."); if (!Object.entries(data).some(([key, value]) => before[key as keyof typeof data] !== value)) return; await tx.orm.public.Contact.where({ id }).update(data); await activity(tx, "CONTACT_UPDATED", "Contact details updated.", null, id); });
+  const id = recordId(form.get("id")); const data = contactInput(form); const expected = text(form, "updatedAt"); if (!expected) throw new Error("Reload the contact before saving.");
+  await db.transaction(async tx => { const before = await tx.orm.public.Contact.where({ id }).first(); if (!before) throw new Error("Contact no longer exists."); if (expected !== before.updatedAt) throw new Error("This contact changed. Reload before saving."); if (!Object.entries(data).some(([key, value]) => before[key as keyof typeof data] !== value)) return; const changed = await tx.orm.public.Contact.where({ id, updatedAt: expected }).update(data); if (!changed) throw new Error("This contact changed while saving. Reload and try again."); await activity(tx, "CONTACT_UPDATED", "Contact details updated.", null, id); });
   refresh(); redirect(`/contacts/${id}`);
 }
 export async function deleteProperty(form: FormData) {

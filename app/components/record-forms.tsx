@@ -28,7 +28,7 @@ export function PropertyForm({ property, action }: { property: Property; action:
   </ActionForm>;
 }
 export function ContactForm({ contact, action }: { contact: Contact; action: Action }) {
-  return <ActionForm action={action}><input type="hidden" name="id" value={contact.id}/>
+  return <ActionForm action={action}><input type="hidden" name="id" value={contact.id}/><input type="hidden" name="updatedAt" value={contact.updatedAt}/>
     <Section title="Contact information"><div className="grid gap-5 md:grid-cols-2">
       <Field name="firstName" label="First name" value={contact.firstName} required/>
       <Field name="lastName" label="Last name" value={contact.lastName}/>
