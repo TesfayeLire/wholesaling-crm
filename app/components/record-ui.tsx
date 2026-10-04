@@ -19,10 +19,10 @@ export function Field({ name, label, value, type = "text", required = false }: {
       <input name={name} type={type} defaultValue={value ?? ""} required={required} min={type === "number" ? "0" : undefined} step={type === "number" ? "any" : undefined} className={inputClass}/>}
   </label>;
 }
-export function DeleteRecord({ id, action, name, explanation, label = "Delete record" }: { id: number; action: (form: FormData) => Promise<void | { error?: string; success?: string }>; name: string; explanation: string; label?: string }) {
+export function DeleteRecord({ id, updatedAt, action, name, explanation, label = "Delete record" }: { id: number; updatedAt: string; action: (form: FormData) => Promise<void | { error?: string; success?: string }>; name: string; explanation: string; label?: string }) {
   return <Section title={label}><p className="text-sm text-slate-600">{explanation}</p>
     <ActionForm action={action} confirmMessage={`Permanently delete ${name}? ${explanation}`}>
-      <input type="hidden" name="id" value={id}/>
+      <input type="hidden" name="id" value={id}/><input type="hidden" name="updatedAt" value={updatedAt}/>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" required name="confirm" value="DELETE"/>I confirm I want to permanently delete this record.</label>
       <SubmitButton destructive>{label}</SubmitButton>
     </ActionForm>
