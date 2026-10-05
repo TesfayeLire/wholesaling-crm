@@ -33,6 +33,6 @@ export default async function ContactDetail({ params }: { params: Promise<{ id: 
     </Section>
     <Section title="Tasks"><Link className={linkClass} href="/tasks/new">Create task</Link><TaskList tasks={tasks} properties={properties} contacts={[contact]}/></Section>
     <ActivityHistory activities={activities}/>
-    <DeleteRecord id={contact.id} action={deleteContact} name={name} explanation="Linked properties, tasks and activity history will be preserved. This contact's links will be removed."/>
+    <DeleteRecord id={contact.id} updatedAt={contact.updatedAt} action={deleteContact} name={name} explanation="Linked properties, tasks and activity history will be preserved. This contact's links will be removed."/>
   </RecordPage>;
 }

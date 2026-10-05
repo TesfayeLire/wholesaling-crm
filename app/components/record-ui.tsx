@@ -19,10 +19,10 @@ export function Field({ name, label, value, type = "text", required = false }: {
       <input name={name} type={type} defaultValue={value ?? ""} required={required} min={type === "number" ? "0" : undefined} step={type === "number" ? "any" : undefined} className={inputClass}/>}
   </label>;
 }
-export function DeleteRecord({ id, action, name, explanation, label = "Delete record" }: { id: number; action: (form: FormData) => Promise<void | { error?: string; success?: string }>; name: string; explanation: string; label?: string }) {
+export function DeleteRecord({ id, updatedAt, action, name, explanation, label = "Delete record" }: { id: number; updatedAt: string; action: (form: FormData) => Promise<void | { error?: string; success?: string }>; name: string; explanation: string; label?: string }) {
   return <Section title={label}><p className="text-sm text-slate-600">{explanation}</p>
     <ActionForm action={action} confirmMessage={`Permanently delete ${name}? ${explanation}`}>
-      <input type="hidden" name="id" value={id}/>
+      <input type="hidden" name="id" value={id}/><input type="hidden" name="updatedAt" value={updatedAt}/>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" required name="confirm" value="DELETE"/>I confirm I want to permanently delete this record.</label>
       <SubmitButton destructive>{label}</SubmitButton>
     </ActionForm>
@@ -30,5 +30,5 @@ export function DeleteRecord({ id, action, name, explanation, label = "Delete re
 }
 export function ActivityHistory({ activities }: { activities: { id: number; createdAt: string; description: string }[] }) {
   const ordered = [...activities].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id);
-  return <Section title="Activity history">{ordered.length ? <ol className="space-y-3">{ordered.map(item => <li key={item.id} className="border-b border-slate-100 pb-3"><p>{item.description}</p><time className="text-xs text-slate-500" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("en-US", { timeZone: "UTC" })} UTC</time></li>)}</ol> : <p className="text-sm text-slate-500">No activity recorded yet.</p>}</Section>;
+  return <Section title="Activity history">{ordered.length ? <ol className="space-y-3">{ordered.map(item => <li key={item.id} className="border-b border-slate-100 pb-3"><p>{item.description}</p><time className="text-xs text-slate-500" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString("en-US", { timeZone: "America/Chicago" })} Central</time></li>)}</ol> : <p className="text-sm text-slate-500">No activity recorded yet.</p>}</Section>;
 }

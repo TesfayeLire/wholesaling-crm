@@ -73,9 +73,10 @@ test("invalid IDs, outcomes and oversized notes never mutate", async () => {
     const f = fixture(), before = JSON.stringify(f.state); assert.ok((await f.actions.logContact(f.form(values))).error); assert.equal(JSON.stringify(f.state), before);
   }
 });
-test("contact timestamps reject rollover, malformed and future times", () => {
-  assert.equal(center.contactTime("2026-09-24T13:45", now), "2026-09-24T13:45:00.000Z");
-  for (const time of ["2026-02-30T13:45", "2026-09-25T25:01", "2026-09-26T01:00", "tomorrow"]) assert.throws(() => center.contactTime(time, now));
+test("contact timestamps use Central Time and reject rollover, DST gaps, malformed and future times", () => {
+  assert.equal(center.contactTime("2026-09-24T13:45", now), "2026-09-24T18:45:00.000Z");
+  assert.equal(center.contactTime("2026-01-15T13:45", now), "2026-01-15T19:45:00.000Z");
+  for (const time of ["2026-02-30T13:45", "2026-03-08T02:30", "2026-09-25T25:01", "2026-09-26T01:00", "tomorrow"]) assert.throws(() => center.contactTime(time, now));
 });
 test("last contacted derives only from latest outreach time, including backdated logs", () => {
   const events = [event(), event({ id: 2, createdAt: "2026-09-20T18:00:00Z" }), event({ id: 3, type: "PROPERTY_UPDATED", createdAt: now.toISOString() })];
@@ -180,8 +181,8 @@ test("property reschedule can explicitly complete an existing task without dupli
 
 test("an older queue or task editor cannot complete or overwrite a rescheduled task", async () => {
   const f = fixture(); f.state.Task.push({ id: 3, title: "Call", status: "PENDING", propertyId: 1, contactId: 2, dueDate: "2026-09-28", updatedAt: "2026-09-25T13:00:00Z" });
-  await assert.rejects(f.taskActions.setTaskStatus(form({ id: 3, updatedAt: stamp, status: "COMPLETED" })), /changed/);
-  await assert.rejects(f.taskActions.updateTask(form({ id: 3, updatedAt: stamp, title: "Old title", status: "PENDING", dueDate: "2026-09-24" })), /changed/);
+  assert.match((await f.taskActions.setTaskStatus(form({ id: 3, updatedAt: stamp, status: "COMPLETED" }))).error, /changed/);
+  assert.match((await f.taskActions.updateTask(form({ id: 3, updatedAt: stamp, title: "Old title", status: "PENDING", dueDate: "2026-09-24" }))).error, /changed/);
   assert.equal(f.state.Task[0].status, "PENDING"); assert.equal(f.state.Task[0].dueDate, "2026-09-28"); assert.equal(f.state.Activity.length, 0);
 });
 test("task rescheduling produces history and a repeated save adds no duplicate event", async () => {

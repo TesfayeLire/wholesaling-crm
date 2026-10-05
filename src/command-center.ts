@@ -11,11 +11,51 @@ export function contactType(value: string) {
   if (!Object.hasOwn(contactTypes, value)) throw new Error("Choose a valid contact result.");
   return value as keyof typeof contactTypes;
 }
+const centralDateTime = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Chicago",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function centralParts(date: Date) {
+  const parts = Object.fromEntries(
+    centralDateTime.formatToParts(date)
+      .filter(part => part.type !== "literal")
+      .map(part => [part.type, Number(part.value)])
+  );
+  return [parts.year, parts.month, parts.day, parts.hour, parts.minute];
+}
+
 export function contactTime(value: string, now = new Date()) {
   if (!value) return now.toISOString();
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) throw new Error("Enter a valid contact time in UTC.");
-  const date = new Date(value + ":00.000Z");
-  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 16) !== value || date > now) throw new Error("Contact time must be valid and cannot be in the future.");
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) throw new Error("Enter a valid Central Time contact date and time.");
+
+  const wanted = match.slice(1).map(Number);
+  const desired = Date.UTC(wanted[0], wanted[1] - 1, wanted[2], wanted[3], wanted[4]);
+
+  let instant = desired;
+  for (let i = 0; i < 3; i++) {
+    const shown = centralParts(new Date(instant));
+    const shownAsUtc = Date.UTC(shown[0], shown[1] - 1, shown[2], shown[3], shown[4]);
+    instant += desired - shownAsUtc;
+  }
+
+  const date = new Date(instant);
+  const shown = centralParts(date);
+  if (
+    !Number.isFinite(date.getTime()) ||
+    shown.some((part, index) => part !== wanted[index]) ||
+    date > now
+  ) {
+    throw new Error("Contact time must be a valid Central Time date and cannot be in the future.");
+  }
+
   return date.toISOString();
 }
 export type Outreach = { id: number; type: string; description: string; createdAt: string; propertyId: number | null; contactId: number | null };
