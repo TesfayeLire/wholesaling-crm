@@ -3,6 +3,7 @@ import { db } from "@/src/prisma/db";
 import { connection } from "next/server";
 import { TaskRelations } from "@/app/components/record-forms";
 import { createTask } from "@/app/actions";
+import { ActionForm, SubmitButton } from "@/app/components/action-form";
 
 export default async function NewTaskPage() {
   await connection();
@@ -33,7 +34,7 @@ export default async function NewTaskPage() {
           </p>
         </div>
 
-        <form action={createTask} className="space-y-6">
+        <ActionForm action={createTask} className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-5 text-lg font-semibold">Task Information</h2>
 
@@ -94,14 +95,9 @@ export default async function NewTaskPage() {
               Cancel
             </Link>
 
-            <button
-              type="submit"
-              className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Save Task
-            </button>
+            <SubmitButton>Save Task</SubmitButton>
           </div>
-        </form>
+        </ActionForm>
       </main>
     </div>
   );

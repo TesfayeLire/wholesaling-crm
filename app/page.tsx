@@ -5,6 +5,7 @@ import { getCommandCenter } from "@/src/command-center-data";
 import { connection } from "next/server";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
+import { stageLabels } from "@/src/pipeline";
 
 const navigation = [
   { label: "Dashboard", href: "/" },
@@ -175,7 +176,7 @@ export default async function Home() {
                       </div>
 
                       <span className="text-xs font-semibold">
-                        {property.status.replaceAll("_", " ")}
+                        {stageLabels[property.status]}
                       </span>
                     </div>
                   ))}

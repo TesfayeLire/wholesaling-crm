@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createContact } from "@/app/actions";
+import { ActionForm, SubmitButton } from "@/app/components/action-form";
 
 export default function NewContactPage() {
   return (
@@ -28,7 +29,7 @@ export default function NewContactPage() {
           </p>
         </div>
 
-        <form action={createContact} className="space-y-6">
+        <ActionForm action={createContact} className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-5 text-lg font-semibold">
               Contact Information
@@ -104,14 +105,9 @@ export default function NewContactPage() {
               Cancel
             </Link>
 
-            <button
-              type="submit"
-              className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Save Contact
-            </button>
+            <SubmitButton>Save Contact</SubmitButton>
           </div>
-        </form>
+        </ActionForm>
       </main>
     </div>
   );

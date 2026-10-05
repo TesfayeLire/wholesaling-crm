@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createProperty } from "@/app/actions";
+import { ActionForm, SubmitButton } from "@/app/components/action-form";
 
 export default function NewPropertyPage() {
   return (
@@ -28,7 +29,7 @@ export default function NewPropertyPage() {
           </p>
         </div>
 
-        <form action={createProperty} className="space-y-6">
+        <ActionForm action={createProperty} className="space-y-6">
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-5 text-lg font-semibold">Property Information</h2>
 
@@ -226,14 +227,9 @@ export default function NewPropertyPage() {
               Cancel
             </Link>
 
-            <button
-              type="submit"
-              className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Save Property
-            </button>
+            <SubmitButton>Save Property</SubmitButton>
           </div>
-        </form>
+        </ActionForm>
       </main>
     </div>
   );

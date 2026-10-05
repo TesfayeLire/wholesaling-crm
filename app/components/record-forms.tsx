@@ -5,7 +5,7 @@ import { stageLabels } from "@/src/pipeline";
 import { ActionForm, SubmitButton } from "./action-form";
 import { Field, Section, inputClass, linkClass } from "./record-ui";
 
-type Action = (form: FormData) => Promise<void>;
+type Action = (form: FormData) => Promise<void | { error?: string; success?: string }>;
 export function PropertyForm({ property, action }: { property: Property; action: Action }) {
   return <ActionForm action={action}><input type="hidden" name="id" value={property.id}/><input type="hidden" name="updatedAt" value={property.updatedAt}/>
     <Section title="Property information"><div className="grid gap-5 md:grid-cols-2">
