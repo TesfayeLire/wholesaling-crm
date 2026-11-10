@@ -1,3 +1,9 @@
+export async function readRows<T>(result: AsyncIterable<T>): Promise<T[]> {
+  const rows: T[] = [];
+  for await (const row of result) rows.push(row);
+  return rows;
+}
+
 export async function safeDbQuery<T>(label: string, work: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await work();
