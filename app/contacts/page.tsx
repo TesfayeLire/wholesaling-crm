@@ -1,3 +1,4 @@
+import { safeDbQuery } from "@/src/db-safety";
 import Link from "next/link";
 import { db } from "@/src/prisma/db";
 
@@ -5,10 +6,13 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const q = (typeof params.q === "string" ? params.q : "").trim();
   const digits = q.replace(/\D/g, "");
-  const contacts = (await db.orm.public.Contact.all()).filter(contact =>
-    !q || [contact.firstName, contact.lastName, contact.phone, contact.email].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase()) ||
-    (digits.length > 0 && /^[+()\d\s.-]+$/.test(q) && (contact.phone ?? "").replace(/\D/g, "").includes(digits))
-  );
+  const contacts = await safeDbQuery("contacts page", async () => {
+    const rows = await db.orm.public.Contact.all();
+    return rows.filter(contact =>
+      !q || [contact.firstName, contact.lastName, contact.phone, contact.email].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase()) ||
+      (digits.length > 0 && /^[+()\d\s.-]+$/.test(q) && (contact.phone ?? "").replace(/\D/g, "").includes(digits))
+    );
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">

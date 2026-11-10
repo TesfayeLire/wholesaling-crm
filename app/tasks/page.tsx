@@ -1,3 +1,4 @@
+import { safeDbQuery } from "@/src/db-safety";
 import Link from "next/link";
 import { TaskList } from "@/app/components/task-list";
 import { db } from "@/src/prisma/db";
@@ -5,7 +6,11 @@ import { db } from "@/src/prisma/db";
 export default async function TasksPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const params = await searchParams;
   const status = params.status === "PENDING" || params.status === "COMPLETED" ? params.status : "ALL";
-  const [allTasks, properties, contacts] = await Promise.all([db.orm.public.Task.all(), db.orm.public.Property.all(), db.orm.public.Contact.all()]);
+  const [allTasks, properties, contacts] = await Promise.all([
+    safeDbQuery("tasks page: tasks", () => db.orm.public.Task.all(), []),
+    safeDbQuery("tasks page: properties", () => db.orm.public.Property.all(), []),
+    safeDbQuery("tasks page: contacts", () => db.orm.public.Contact.all(), []),
+  ]);
   const tasks = allTasks.filter(task => status === "ALL" || task.status === status);
 
   return (

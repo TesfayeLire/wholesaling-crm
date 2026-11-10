@@ -1,3 +1,4 @@
+import { safeDbQuery } from "@/src/db-safety";
 import { TemperatureBadge } from "@/app/components/command-center";
 import { stageLabels } from "@/src/pipeline";
 import { displayDate, followUpStatus } from "@/src/follow-up";
@@ -8,10 +9,13 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   const params = await searchParams;
   const q = (typeof params.q === "string" ? params.q : "").trim();
   const status = typeof params.status === "string" ? params.status : "ALL";
-  const properties = (await db.orm.public.Property.all()).filter(property =>
-    (!q || [property.address, property.city, property.state, property.zipCode, property.county].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())) &&
-    (status === "ALL" || !status || property.status === status)
-  );
+  const properties = await safeDbQuery("properties page", async () => {
+    const rows = await db.orm.public.Property.all();
+    return rows.filter(property =>
+      (!q || [property.address, property.city, property.state, property.zipCode, property.county].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())) &&
+      (status === "ALL" || !status || property.status === status)
+    );
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -65,16 +69,18 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
             <option value="DEAD">Dead / Not a Deal</option>
             <option value="NURTURE">Follow-Up</option>
           </select>
-          <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm text-white">Search / Filter</button>
+
+          <button className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Search</button>
           <Link href="/properties" className="px-4 py-2 text-sm underline">Clear</Link>
         </form>
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Property</span>
+          <div className="grid grid-cols-[1.7fr_1fr_1fr_1.2fr_1.3fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <span>Address</span>
+            <span>Location</span>
             <span>Status</span>
-            <span>Asking Price</span>
             <span>Next Action</span>
+            <span>Temperature</span>
           </div>
 
           {properties.length === 0 ? (
@@ -88,7 +94,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
             properties.map((property) => (
               <div
                 key={property.id}
-                className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-b-0"
+                className="grid grid-cols-[1.7fr_1fr_1fr_1.2fr_1.3fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-b-0"
               >
                 <div>
                   <Link className="font-semibold underline" href={`/properties/${property.id}`}>{property.address}</Link>
@@ -96,10 +102,19 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
                     {property.city}, {property.state} {property.zipCode}
                   </p>
                 </div>
-
-                <div><p>{stageLabels[property.status]}</p><TemperatureBadge value={property.temperature}/></div>
-                <span>{property.askingPrice}</span>
-                <div><p>{property.nextAction || "No next action"}</p><p className="text-xs text-slate-500">{followUpStatus(property.nextActionDate)}{property.nextActionDate ? " · " + displayDate(property.nextActionDate) : ""}</p></div>
+                <div className="text-slate-500">
+                  {property.county ?? "—"}
+                </div>
+                <div>
+                  <span className="font-medium">{stageLabels[property.status]}</span>
+                </div>
+                <div className="text-slate-600">
+                  {property.nextAction ?? "No next action"}
+                  {property.nextActionDate ? <div className="text-xs text-slate-500">{displayDate(property.nextActionDate)}</div> : null}
+                </div>
+                <div>
+                  <TemperatureBadge temperature={property.temperature} />
+                </div>
               </div>
             ))
           )}
